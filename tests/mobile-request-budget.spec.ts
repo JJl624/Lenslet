@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/mobile-test';
 import {mobileDavFixture,runMobileSync} from './helpers/mobile-dav-fixture';
 import {davServer} from './helpers/dav-server.cjs';
 

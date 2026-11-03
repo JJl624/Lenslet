@@ -3,6 +3,15 @@ const {AppUpdates,releaseInfo,releaseAssets}=require('../electron/app-updates.cj
 const windowsInfo=value=>releaseInfo(value,'win32','x64');
 const base=path.resolve(__dirname,'../../../work/update-unit');
 const release=(version='1.0.1')=>({tag_name:'v'+version,draft:false,prerelease:false,assets:[{name:'Moyu-'+version+'-x64.exe',state:'uploaded',size:100,browser_download_url:'https://github.com/JJl624/Moyu/releases/download/v'+version+'/Moyu-'+version+'-x64.exe'}]});
+test('Android browser variants select their own release asset and reject the other package',()=>{
+ for(const variant of ['gecko','webview']){
+  const own=releaseAssets('1.0.99','android',variant)[0],other=releaseAssets('1.0.99','android',variant==='gecko'?'webview':'gecko')[0];
+  const asset=name=>({name,state:'uploaded',size:100,browser_download_url:'https://github.com/JJl624/Moyu/releases/download/v1.0.99/'+name});
+  const metadata={tag_name:'v1.0.99',assets:[asset(other),asset(own)]};
+  assert.equal(releaseInfo(metadata,'android',variant).downloadUrl,asset(own).browser_download_url);
+  assert.throws(()=>releaseInfo({...metadata,assets:[asset(other)]},'android',variant),/Android/);
+ }
+});
 async function fixture(t){await fs.mkdir(base,{recursive:true});const root=await fs.mkdtemp(path.join(base,'case-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));return root;}
 test('Update checks validate the stable Windows asset and reject incomplete or redirected releases',()=>{
  assert.equal(windowsInfo(release()).version,'1.0.1');

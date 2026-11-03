@@ -9,7 +9,13 @@ import android.widget.FrameLayout;
 final class SystemBarsLayout extends FrameLayout {
     private final Paint status=new Paint(),navigation=new Paint();
     SystemBarsLayout(Context context){super(context);setWillNotDraw(false);}
-    void setBarColors(int top,int bottom){status.setColor(top);navigation.setColor(bottom);setBackgroundColor(top);invalidate();}
+    void setBarColors(int top,int bottom){
+        if(status.getColor()==top&&navigation.getColor()==bottom)return;
+        boolean backgroundChanged=navigation.getColor()!=bottom;
+        status.setColor(top);navigation.setColor(bottom);
+        if(backgroundChanged){setBackgroundColor(bottom);invalidate();}
+        else invalidate(0,0,getWidth(),getPaddingTop());
+    }
     @Override protected void onDraw(Canvas canvas){
         super.onDraw(canvas);
         canvas.drawRect(0,0,getWidth(),getPaddingTop(),status);

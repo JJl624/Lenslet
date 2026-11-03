@@ -1,0 +1,4 @@
+{
+  "gecko": {"applicationId": "com.lrj.moyu.gecko", "label": "墨屿", "assetSuffix": ""},
+  "webview": {"applicationId": "com.lrj.moyu.webview", "label": "墨屿", "assetSuffix": "-WebView"}
+}

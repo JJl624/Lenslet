@@ -2,7 +2,7 @@ const { policy } = require('./sync-policy.cjs');
 const {automaticSyncGap}=require('../shared/sync-requests.mjs');
 // One scheduler per open vault. Timers never save editor buffers.
 class SyncScheduler {
-  constructor(sync, finished = async () => {}) { this.sync = sync; this.finished = finished;this.lastStarted=-Infinity;this.paths=new Set(); }
+  constructor(sync, finished = async () => {}) { this.sync = sync; this.finished = finished;this.lastStarted=-Infinity;this.paths=new Set();this.blocked=false; }
   configure(config, opening = false) {
     this.close(); this.closed = false;
     this.settings = policy(config.sync); this.enabled = !!config.url;
@@ -16,6 +16,13 @@ class SyncScheduler {
   changed(name) {
     if (!this.closed && this.enabled && this.settings.afterSave) {this.paths.add(name||'*');this.later(2000);}
   }
+  setBlocked(blocked) {
+    const next=!!blocked;
+    if(this.blocked===next)return;
+    this.blocked=next;
+    if(next){clearTimeout(this.pending);this.pending=null;return;}
+    if(this.requested)this.later(2000);
+  }
   later(ms,poll=false) {
     this.pollRequested ||= poll;
     this.requested = true;
@@ -25,6 +32,7 @@ class SyncScheduler {
   async trigger(poll=true) {
     if (this.closed || !this.enabled) return;
     this.pollRequested ||= poll;
+    if(this.blocked){this.requested=true;clearTimeout(this.pending);this.pending=null;return;}
     if (this.sync.job.phase === 'awaiting') { this.requested = false; return; }
     if (this.executing) { this.requested = true; return; }
     if (this.sync.running) {

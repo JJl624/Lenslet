@@ -1,16 +1,17 @@
-import {test,expect} from '@playwright/test';
+import {openMobileSettings} from './helpers/mobile-controls.mjs';
+import {test,expect} from './helpers/mobile-test';
 import {mockAndroid} from './helpers/mobile-native-mock';
 
 test('Shortcut order can be changed from the format sheet, survives restart and retains the selected text',async({page})=>{
   await mockAndroid(page);await page.goto('/mobile.html');await page.getByRole('tab',{name:'源码',exact:true}).click();const source=page.locator('.source-editor .cm-content');await source.fill('排序后加粗');await source.focus();await page.keyboard.press('Control+Home');await page.keyboard.press('Control+Shift+End');
   await page.getByRole('button',{name:'全部格式',exact:true}).click();await page.getByRole('button',{name:'自定义工具栏',exact:true}).click();const sorting=page.getByRole('dialog',{name:'编辑工具栏'});await expect(sorting).toBeVisible();await sorting.getByRole('button',{name:'下移 加粗',exact:true}).click();
   await expect(sorting.locator('[data-shortcut]').first()).toHaveAttribute('data-shortcut','italic');await page.evaluate(()=>window.dispatchEvent(new Event('moyu-mobile-back')));await expect(page.getByRole('dialog',{name:'全部格式'})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'加粗',exact:true}).click();await expect(source).toHaveText('**排序后加粗**');
-  await expect(page.getByRole('toolbar',{name:'文本格式'}).getByRole('button').first()).toHaveAttribute('aria-label','斜体');await page.getByRole('button',{name:'保存文档',exact:true}).click();await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByRole('button',{name:'编辑工具栏',exact:true}).click();await expect(sorting.locator('[data-shortcut]').first()).toHaveAttribute('data-shortcut','italic');await page.getByRole('button',{name:'关闭编辑工具栏',exact:true}).click();
+  await expect(page.getByRole('toolbar',{name:'文本格式'}).getByRole('button').first()).toHaveAttribute('aria-label','斜体');await page.getByRole('button',{name:'保存文档',exact:true}).click();await page.getByRole('button',{name:'返回笔记',exact:true}).click();await openMobileSettings(page);await page.getByRole('button',{name:'编辑工具栏',exact:true}).click();await expect(sorting.locator('[data-shortcut]').first()).toHaveAttribute('data-shortcut','italic');await page.getByRole('button',{name:'关闭编辑工具栏',exact:true}).click();
   await page.reload();await page.getByRole('tab',{name:'源码',exact:true}).click();await expect(page.getByRole('toolbar',{name:'文本格式'}).getByRole('button').first()).toHaveAttribute('aria-label','斜体');await expect(source).toHaveText('**排序后加粗**');
 });
 
 test('The reorder handle supports real touch dragging; only the handle captures a gesture',async({page,context})=>{
-  await mockAndroid(page);await page.goto('/mobile.html');await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByRole('button',{name:'编辑工具栏',exact:true}).click();
+  await mockAndroid(page);await page.goto('/mobile.html');await page.getByRole('button',{name:'返回笔记',exact:true}).click();await openMobileSettings(page);await page.getByRole('button',{name:'编辑工具栏',exact:true}).click();
   const first=(await page.getByRole('button',{name:'拖动排序 加粗',exact:true}).boundingBox())!,target=(await page.locator('[data-shortcut="highlight"]').boundingBox())!,cdp=await context.newCDPSession(page);
   const x=first.x+first.width/2,y=first.y+first.height/2,to=target.y+target.height/2;
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
@@ -39,6 +40,6 @@ test('Any format can be pinned, removed and reordered without a limit; the plus 
 });
 
 test('Attachment insertion belongs to the complete insert menu and preserves the selection',async({page})=>{
-  await mockAndroid(page);await page.goto('/mobile.html');await page.getByRole('tab',{name:'源码',exact:true}).click();const source=page.locator('.source-editor .cm-content');await source.fill('前面后面');await source.focus();await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');await page.keyboard.press('ArrowRight');
+  await mockAndroid(page);await page.goto('/mobile.html');await page.getByRole('tab',{name:'源码',exact:true}).click();const source=page.locator('.source-editor .cm-content');await expect(page.locator('.source-editor')).not.toHaveAttribute('data-editor-pending','true');await source.focus();await page.keyboard.press('Control+Home');await page.keyboard.press('Control+Shift+End');await page.keyboard.insertText('前面后面');await expect(source).toHaveText('前面后面');await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('toolbar',{name:'文本格式'}).getByRole('button',{name:'插入附件',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'全部格式',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'插入附件',exact:true}).click();await expect(source).toContainText('前面![图片.svg]');await expect(source).toContainText('后面');
 });

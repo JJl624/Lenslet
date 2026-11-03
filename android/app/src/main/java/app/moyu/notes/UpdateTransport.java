@@ -19,7 +19,8 @@ final class UpdateTransport {
         else if(kind.equals("redirect"))url=RELEASES+"/latest";
         else if(kind.equals("asset")){
             url=input.getString("url");
-            if(!url.matches("https://github\\.com/JJl624/Moyu/releases/download/v?[0-9]+\\.[0-9]+\\.[0-9]+/Moyu-Android-[0-9]+\\.[0-9]+\\.[0-9]+\\.apk"))throw new IOException("更新下载地址无效。");
+            String suffix=BuildConfig.BROWSER_ENGINE.equals("webview")?"-WebView":"";
+            if(!url.matches("https://github\\.com/JJl624/Moyu/releases/download/v?[0-9]+\\.[0-9]+\\.[0-9]+/Moyu-Android-[0-9]+\\.[0-9]+\\.[0-9]+"+suffix+"\\.apk"))throw new IOException("更新下载地址无效。");
         }else throw new IOException("更新请求无效。");
         Request.Builder builder=new Request.Builder().url(url).header("User-Agent","Moyu-Android/"+BuildConfig.VERSION_NAME).header("Accept","application/vnd.github+json");
         if(kind.equals("asset"))builder.head();

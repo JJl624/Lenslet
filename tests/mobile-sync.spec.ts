@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/mobile-test';
 import {mobileDavFixture as fixture,runMobileSync} from './helpers/mobile-dav-fixture';
 import {davServer} from './helpers/dav-server.cjs';
 test('Mobile WebDAV uploads, downloads, compares two-sided edits, resolves differences and refreshes the vault',async({page})=>{

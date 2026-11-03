@@ -296,6 +296,6 @@ export const assetURL = (document: string, src: string) => {
     if (part === "..") resolved.pop();
     else if (part !== ".") resolved.push(part);
   });
-  return (api.platform === 'android' ? 'https://appassets.androidplatform.net/vault/' : "moyu-asset://vault/")
+  return (api.platform === 'android' ? (window.MoyuNative?.engine==='gecko'?new URL('./vault/',window.document.baseURI).href:'https://appassets.androidplatform.net/vault/') : "moyu-asset://vault/")
     + resolved.map(encodeURIComponent).join("/");
 };

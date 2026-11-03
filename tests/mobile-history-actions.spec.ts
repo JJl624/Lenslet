@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/mobile-test';
 import {mockAndroid} from './helpers/mobile-native-mock';
 
 for(const mode of ['源码','编辑'])test(`${mode}: upper undo and redo preserve focus instead of opening the keyboard`,async({page})=>{

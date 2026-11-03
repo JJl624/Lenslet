@@ -1,4 +1,5 @@
-import {test,expect,type Page} from '@playwright/test';
+import {openMobileSettings} from './helpers/mobile-controls.mjs';
+import {test,expect,type Page} from './helpers/mobile-test';
 import {mockAndroid} from './helpers/mobile-native-mock';
 import path from 'node:path';
 const work=path.resolve(import.meta.dirname,'../../../work');
@@ -71,12 +72,12 @@ test('Native back unwinds nested creation panels and validation errors before re
 });
 
 test('Back from settings returns to the list without changing its selected folder',async({page})=>{
-  await home(page);await page.locator('[data-path="资料"] .mobile-file-open').click();await page.locator('[data-path="资料/子目录"] .mobile-file-open').click();await page.getByRole('button',{name:'设置',exact:true}).click();await back(page);
+  await home(page);await page.locator('[data-path="资料"] .mobile-file-open').click();await page.locator('[data-path="资料/子目录"] .mobile-file-open').click();await openMobileSettings(page);await back(page);
   await expect(page.getByRole('tree',{name:'文档目录'})).toBeVisible();await expect(page.locator('[data-path="资料/子目录"]')).toHaveAttribute('aria-selected','true');
 });
 
 test('Large interface text on a narrow phone keeps settings and nested panels within the viewport',async({page})=>{
-  await home(page);await page.setViewportSize({width:320,height:568});await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByRole('slider',{name:'界面字号',exact:true}).fill('24');
+  await home(page);await page.setViewportSize({width:320,height:568});await openMobileSettings(page);await page.getByRole('slider',{name:'界面字号',exact:true}).fill('24');
   expect(await page.locator('.mobile-home-content').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
   for(const label of ['界面字号','正文字号','保存方式']){const text=page.locator('.mobile-settings-section label > span,.mobile-select-heading > span').filter({hasText:label});expect(await text.evaluate(element=>element.getBoundingClientRect().height<=parseFloat(getComputedStyle(element).lineHeight)+1)).toBe(true);}
   for(const label of ['外观','配色','保存方式']){const box=(await page.getByLabel(label,{exact:true}).boundingBox())!;expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(320);}

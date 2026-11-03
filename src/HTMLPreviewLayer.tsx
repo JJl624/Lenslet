@@ -5,7 +5,7 @@ import {attribute,withAttribute,parseBlocks} from '../shared/code-documents.mjs'
 import type {CodeIdentity} from './codeBlocks';
 import type {EditorHandle} from './editorTypes';
 import {htmlPreviewSource} from './htmlPreviewSource';
-import {bindCodeResize} from './codeResizeGesture';
+import {bindHeightResize} from './heightResizeGesture';
 import {api} from './bridge';
 import type {FileNode} from './types';
 import {useMobilePinnedHTML,type MobilePinnedHTML} from './mobile/useMobilePinnedHTML';
@@ -53,7 +53,7 @@ function HTMLPreview({path,block,host,owner,codeControls,readOnly,update}:{path:
   },[path,block.code,opened,visible,revision]);
   useEffect(()=>{
     if(!handle.current)return;
-    return bindCodeResize(handle.current,{mobile:!!host.closest('.mobile-app'),measure:()=>heightRef.current,value:()=>heightRef.current,
+    return bindHeightResize(handle.current,{mobile:!!host.closest('.mobile-app'),minHeight:100,maxHeight:1600,defaultHeight:()=>280,measure:()=>heightRef.current,value:()=>heightRef.current,
       preview:value=>setHeight(bounded(value)),commit:value=>{const height=bounded(value);setHeight(height);if(latest.current.pinned&&!latest.current.readOnly)apply({previewHeight:String(height)});}});
   },[host,opened]);
   const halt=(event:React.SyntheticEvent)=>event.stopPropagation();
@@ -75,9 +75,7 @@ function HTMLPreview({path,block,host,owner,codeControls,readOnly,update}:{path:
     {!opened&&error&&<p className='html-note-error' role='alert'>{error}</p>}
     {opened&&<div className='html-note-window' style={{height}} aria-busy={busy}>
       {error?<p className='html-note-error' role='alert'>{error}</p>:html&&(!nativeFrame||url)?<iframe title='HTML 内嵌页面' sandbox='allow-scripts' referrerPolicy='no-referrer' src={nativeFrame?url:undefined} srcDoc={nativeFrame?undefined:html} allow="camera 'none'; microphone 'none'; geolocation 'none'; clipboard-read 'none'; clipboard-write 'none'"/>:<div className='html-note-placeholder'>{busy?'正在加载…':''}</div>}
-      <div className='code-resize html-note-resize' ref={handle} role='separator' aria-label='调整 HTML 预览高度' aria-orientation='horizontal' aria-valuenow={height} tabIndex={0} onKeyDown={event=>{
-        if(!['ArrowUp','ArrowDown','Home'].includes(event.key))return;event.preventDefault();event.stopPropagation();const next=event.key==='Home'?280:bounded(height+(event.key==='ArrowUp'?-10:10));setHeight(next);if(pinned&&!readOnly)apply({previewHeight:String(next)});
-      }}/>
+      <div className='code-resize html-note-resize' ref={handle} aria-label='调整 HTML 预览高度'/>
     </div>}
   </section>;
 }

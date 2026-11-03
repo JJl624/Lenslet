@@ -1,4 +1,4 @@
-import {test,expect,type Page} from '@playwright/test';
+import {test,expect,type Page} from './helpers/mobile-test';
 import path from 'node:path';
 import {mockAndroid} from './helpers/mobile-native-mock';
 const work=path.resolve(import.meta.dirname,'../../../work');
@@ -8,7 +8,7 @@ async function home(page:Page){
 }
 
 test('Home searches titles and body, jumps to the matching line and preserves the query when returning',async({page})=>{
-  await home(page);await expect(page.getByRole('navigation',{name:'主导航'}).getByRole('button')).toHaveCount(2);await expect(page.getByRole('button',{name:'搜索',exact:true})).toHaveCount(0);
+  await home(page);await expect(page.getByRole('navigation',{name:'主导航'})).toHaveCount(0);await expect(page.getByRole('button',{name:'搜索',exact:true})).toHaveCount(0);
   const input=page.getByLabel('搜索笔记');await input.fill('快速排序');await expect(page.locator('.mobile-search-results article')).toHaveCount(1);await expect(page.locator('.mobile-search-results')).toContainText('课程/算法');
   await input.fill('检索目标正文');await expect(page.locator('.mobile-search-match')).toHaveText(/检索目标正文/);await page.screenshot({path:path.join(work,'android-home-search.png')});
   await input.press('Enter');expect(await input.evaluate(element=>element===document.activeElement)).toBe(false);await page.locator('.mobile-search-match').click();await expect(page.getByRole('tab',{name:'阅读',exact:true})).toHaveAttribute('aria-selected','true');

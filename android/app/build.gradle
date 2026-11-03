@@ -1,45 +1,68 @@
 plugins { id 'com.android.application' }
+def engine = providers.gradleProperty('moyuEngine').getOrElse('gecko')
+if(engine == 'system') engine = 'webview'
+def variants = new groovy.json.JsonSlurper().parse(rootProject.file('../shared/android-variants.json'))
+if(!variants.containsKey(engine)) throw new GradleException('Unsupported browser engine')
+def variant = variants[engine]
+def gecko = engine == 'gecko'
+def geckoAbi = providers.gradleProperty('moyuAbi').getOrElse('arm64-v8a')
+if(gecko && !(geckoAbi in ['arm64-v8a', 'x86_64'])) throw new GradleException('Unsupported GeckoView ABI')
+layout.buildDirectory = file(gecko ? 'build-gecko-main-' + geckoAbi : 'build-webview')
 def mobileBuild = new groovy.json.JsonSlurper().parse(rootProject.file('../shared/mobile-build.json'))
 def signingFile = rootProject.file('signing/moyu-release.properties')
 def signingValues = new Properties()
 if(signingFile.exists()) signingFile.withInputStream { signingValues.load(it) }
 android {
-    namespace 'app.moyu.notes'
-    compileSdk 36
-    buildFeatures { buildConfig true }
+    namespace = 'app.moyu.notes'
+    compileSdk { version = release(37) { minorApiLevel = 2 } }
+    buildFeatures { buildConfig = true; resValues = true }
     defaultConfig {
-        applicationId 'app.moyu.notes'
-        minSdk 29
-        targetSdk 36
-        versionCode mobileBuild.versionCode
-        versionName mobileBuild.version
-        resValue 'string', 'app_name', '墨屿'
-        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        applicationId = variant.applicationId
+        minSdk = 29
+        targetSdk = 36
+        versionCode = mobileBuild.versionCode
+        versionName = mobileBuild.version
+        resValue 'string', 'app_name', variant.label
+        buildConfigField 'String', 'BROWSER_ENGINE', '"' + engine + '"'
+        testInstrumentationRunner = 'androidx.test.runner.AndroidJUnitRunner'
     }
-    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    sourceSets {
+        main { java.srcDir gecko ? 'src/gecko/java' : 'src/system/java'; if(gecko) assets.srcDir 'src/gecko/assets' }
+        if(gecko) {
+            debug { assets.srcDir 'src/geckoDebug/assets' }
+            test { java.srcDir 'src/geckoTest/java' }
+        }
+    }
+    compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     signingConfigs {
         release {
             if(signingFile.exists()) {
-                storeFile rootProject.file('signing/moyu-release.jks')
-                storePassword signingValues.getProperty('storePassword')
-                keyAlias 'moyu'
-                keyPassword signingValues.getProperty('keyPassword')
+                storeFile = rootProject.file('signing/moyu-release.jks')
+                storePassword = signingValues.getProperty('storePassword')
+                keyAlias = 'moyu'
+                keyPassword = signingValues.getProperty('keyPassword')
             }
         }
     }
+    if(gecko) {
+        defaultConfig { ndk { abiFilters geckoAbi } }
+        // Mozilla's prebuilt native libraries are shipped unchanged.
+        packaging.jniLibs.keepDebugSymbols += ['**/*.so']
+    }
     buildTypes {
         debug {
-            applicationIdSuffix '.debug'
-            resValue 'string', 'app_name', '墨屿 Dev'
+            applicationIdSuffix = '.debug'
+            resValue 'string', 'app_name', variant.label + ' Dev'
         }
         release {
-            minifyEnabled false
-            signingConfig signingConfigs.release
+            minifyEnabled = false
+            signingConfig = signingConfigs.release
         }
     }
     testOptions { unitTests.returnDefaultValues = true }
 }
 dependencies {
+    if(gecko) implementation "org.mozilla.geckoview:geckoview-${geckoAbi}:158.0.20261021001945"
     implementation 'androidx.webkit:webkit:1.14.0'
     implementation 'androidx.core:core:1.1.0'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'

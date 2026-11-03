@@ -117,7 +117,7 @@ test('Large image and drawing context commands consistently focus the link; prev
   }
 });
 
-test('Enter after an image creates a real paragraph; clicking its empty line or text never activates the image link', async () => {
+test('Clicks below a terminal image do not add a paragraph; Enter creates one explicitly', async () => {
   const { app, page, root, errors } = await fixture();
   try {
     await fs.writeFile(
@@ -129,6 +129,9 @@ test('Enter after an image creates a real paragraph; clicking its empty line or 
     // Create the real following paragraph before checking preview hit testing.
     await expect(page.locator('.visual-attachment .syntax-raw')).toBeVisible();
     await expect(page.locator('.moyu-caret-line')).toHaveCount(0);
+    const owner=page.locator('.visual-attachment').locator('xpath=ancestor::p[1]');await owner.scrollIntoViewIfNeeded();const ownerBox=(await owner.boundingBox())!;
+    await page.mouse.click(ownerBox.x+ownerBox.width/2,ownerBox.y+ownerBox.height+8);await expect(page.locator('.ProseMirror p')).toHaveCount(1);
+    await page.mouse.click(ownerBox.x+ownerBox.width/2,ownerBox.y+ownerBox.height+8,{button:'right'});await expect(page.locator('.ProseMirror p')).toHaveCount(1);await page.keyboard.press('Escape');
     expect(
       await page.locator('.visual-attachment').evaluate(el =>
         el.closest('p')!.getBoundingClientRect().height

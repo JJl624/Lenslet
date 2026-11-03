@@ -207,7 +207,7 @@ test('Score controls zoom, scroll, select tracks and play offline without writin
     await card.getByLabel('乐谱缩放',{exact:true}).selectOption('0.5');await card.getByLabel('乐谱布局',{exact:true}).selectOption('horizontal');
     await expect.poll(()=>viewport.evaluate(element=>element.scrollWidth>element.clientWidth)).toBe(true);
     await card.getByLabel('乐谱音轨',{exact:true}).selectOption('1');await expect(card.getByLabel('乐谱音轨',{exact:true})).toHaveValue('1');
-    await card.getByRole('button',{name:'播放选项',exact:true}).click();await card.getByLabel('播放速度',{exact:true}).selectOption('1.25');await card.getByRole('button',{name:'循环播放',exact:true}).click();await card.getByRole('button',{name:'节拍器',exact:true}).click();await f.page.keyboard.press('Escape');
+    await card.getByRole('button',{name:'循环播放',exact:true}).click();await card.getByRole('button',{name:'节拍器',exact:true}).click();await card.getByRole('button',{name:'播放选项',exact:true}).click();await card.getByLabel('播放速度',{exact:true}).selectOption('1.25');await f.page.keyboard.press('Escape');
     expect(f.requests.filter(url=>url.includes('soundfont/sonivox'))).toEqual([]);
     await card.getByRole('button',{name:'播放乐谱',exact:true}).click();await expect(card.getByRole('button',{name:'暂停乐谱',exact:true})).toBeEnabled({timeout:45000});
     await expect.poll(()=>card.getByLabel('播放进度',{exact:true}).textContent(),{timeout:10000}).not.toBe('0:00');

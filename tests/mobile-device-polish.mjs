@@ -1,8 +1,9 @@
+import {openMobileSettings} from './helpers/mobile-controls.mjs';
 import {chromium,expect} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-const sdk=process.env.ANDROID_HOME,serial=process.env.ANDROID_SERIAL||'emulator-5580',app='app.moyu.notes.debug';
+const sdk=process.env.ANDROID_HOME,serial=process.env.ANDROID_SERIAL||'emulator-5580',app='com.lrj.moyu.webview.debug';
 if(!sdk||!serial.startsWith('emulator-'))throw Error('Use an Android test emulator and set ANDROID_HOME.');
 const adb=path.join(sdk,'platform-tools',process.platform==='win32'?'adb.exe':'adb');
 const shell=(...args)=>execFileSync(adb,['-s',serial,...args],{encoding:'utf8',windowsHide:true}).trim();
@@ -65,7 +66,7 @@ try{
   await page.locator('[data-path="'+folder+'/removed"] .mobile-file-open').click();await page.getByRole('button',{name:'操作 removed',exact:true}).click();await confirmNative(page.getByRole('button',{name:'移入回收站',exact:true}));await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button',{name:'新建',exact:true}).click();await page.getByRole('button',{name:'新建文档',exact:true}).click();await page.getByLabel('名称',{exact:true}).fill('after-delete.txt');await page.getByRole('button',{name:'确定',exact:true}).click();await expect(page.getByRole('tab',{name:'阅读',exact:true})).toHaveAttribute('aria-selected','true');
   expect(await native('feature','file.exists',{path:folder+'/after-delete.txt'})).toBe(true);expect(await native('feature','file.exists',{path:folder+'/removed/after-delete.txt'})).toBe(false);await page.getByRole('button',{name:'返回笔记',exact:true}).click();
-  await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByRole('button',{name:'编辑工具栏',exact:true}).click();await page.getByRole('button',{name:'下移 加粗',exact:true}).click();await expect(page.locator('[data-shortcut]').first()).toHaveAttribute('data-shortcut','italic');await page.getByRole('button',{name:'恢复默认工具栏',exact:true}).click();await page.getByRole('button',{name:'关闭编辑工具栏',exact:true}).click();
+  await openMobileSettings(page);await page.getByRole('button',{name:'编辑工具栏',exact:true}).click();await page.getByRole('button',{name:'下移 加粗',exact:true}).click();await expect(page.locator('[data-shortcut]').first()).toHaveAttribute('data-shortcut','italic');await page.getByRole('button',{name:'恢复默认工具栏',exact:true}).click();await page.getByRole('button',{name:'关闭编辑工具栏',exact:true}).click();
   shell('shell','input','keyevent','KEYCODE_BACK');await expect(page.getByRole('tree',{name:'文档目录'})).toBeVisible();await expect(page.locator('[data-path="'+folder+'"]')).toHaveAttribute('aria-selected','true');await page.getByRole('button',{name:'选择知识库',exact:true}).click();await expect(page.getByRole('dialog',{name:'知识库',exact:true})).toBeVisible();shell('shell','input','keyevent','KEYCODE_BACK');await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.locator('[data-path="'+folder+'/nested.md"] .mobile-file-open').click();await page.getByRole('tab',{name:'编辑',exact:true}).click();await expect(page.locator('.editor-host')).not.toHaveAttribute('data-editor-pending','true');await expect.poll(keyboard).toBe(false);
   const nestedCode=page.locator('.milkdown-code-block .cm-content'),nestedTable=page.locator('.ProseMirror table.children');await tap(nestedCode);await expect.poll(keyboard).toBe(true);
@@ -88,5 +89,5 @@ try{
     for(const [action,text]of [['撤销','原文'],['重做','原文新增']]){await tap(page.getByRole('button',{name:action,exact:true}));await expect(content).toHaveText(text);let stable=0;await expect.poll(()=>{stable=keyboard()?0:stable+1;return stable;},{intervals:[100,150,200]}).toBeGreaterThanOrEqual(3);}
     await page.getByRole('button',{name:'保存文档',exact:true}).click();await page.getByRole('button',{name:'返回笔记',exact:true}).click();console.log('PASS: '+mode+' native undo/redo keep both open and closed keyboard states unchanged.');
   }
-  await page.getByRole('button',{name:'设置',exact:true}).click();await expect(page.locator('.mobile-settings-group > h2')).toHaveText(['界面','阅读','编辑','文件与同步']);await fs.writeFile(path.join(output,'android-settings-native.png'),execFileSync(adb,['-s',serial,'exec-out','screencap','-p'],{windowsHide:true,maxBuffer:8*1024*1024}));
+  await openMobileSettings(page);await expect(page.locator('.mobile-settings-group > h2')).toHaveText(['界面','阅读','编辑','文件与同步']);await fs.writeFile(path.join(output,'android-settings-native.png'),execFileSync(adb,['-s',serial,'exec-out','screencap','-p'],{windowsHide:true,maxBuffer:8*1024*1024}));
 }finally{await browser.close();}

@@ -1,4 +1,5 @@
-import {test,expect,type Page,type Locator} from '@playwright/test';
+import {openMobileSettings} from './helpers/mobile-controls.mjs';
+import {test,expect,type Page,type Locator} from './helpers/mobile-test';
 import path from 'node:path';
 import {mockAndroid} from './helpers/mobile-native-mock';
 const work=path.resolve(import.meta.dirname,'../../../work');
@@ -7,6 +8,58 @@ async function start(page:Page,content=raw){await mockAndroid(page,{files:{'list
 const depth=(locator:Locator)=>locator.evaluate(element=>{let count=0;for(let node=element.parentElement;node;node=node.parentElement)if(node.classList.contains('list-item'))count++;return count;});
 async function format(page:Page,label:string){await page.getByRole('button',{name:'全部格式',exact:true}).click();await page.getByRole('dialog',{name:'全部格式',exact:true}).getByRole('button',{name:label,exact:true}).click();}
 
+for(const nested of [false,true])test(`A star after a code block remains visible until space creates a list (${nested?'inside a list':'after a list'})`,async({page})=>{
+  await start(page,nested?'- 原列表\n\n  ```js\n  console.log(1);\n  ```\n':'- 原列表\n\n```js\nconsole.log(1);\n```\n');
+  await page.getByRole('tab',{name:'编辑',exact:true}).tap();
+  await page.locator('.milkdown-code-block .cm-content').tap();await format(page,'换行');
+  await page.keyboard.type('*');
+  await expect(page.locator('.ProseMirror p').filter({hasText:/^\*$/})).toBeVisible();
+  await page.keyboard.press('Space');await page.keyboard.insertText('新列表项');
+  const item=page.locator('.ProseMirror p').filter({hasText:'新列表项'});
+  await expect(item).toBeVisible();expect(await depth(item)).toBe(nested?2:1);
+  await page.getByRole('tab',{name:'源码',exact:true}).tap();await expect(page.locator('.source-editor')).toContainText('新列表项');
+});
+
+test('A newly inserted code block after a list does not consume the next paragraph first character',async({page})=>{
+  await start(page,'- 原列表');await page.getByRole('tab',{name:'编辑',exact:true}).tap();
+  await page.locator('.ProseMirror p').first().tap();await page.keyboard.press('End');
+  await page.keyboard.press('Enter');await page.keyboard.press('Enter');await format(page,'代码块');
+  const code=page.locator('.milkdown-code-block');await code.locator('.cm-content').tap();await page.keyboard.insertText('hello');
+  await format(page,'换行');await page.keyboard.type('*');await page.waitForTimeout(300);
+  await expect(page.locator('.ProseMirror p').filter({hasText:/^\*$/})).toBeVisible();
+  await page.keyboard.press('Space');await page.keyboard.insertText('新项目');
+  await expect(page.locator('.ProseMirror .list-item p').filter({hasText:'新项目'})).toBeVisible();
+  await page.getByRole('tab',{name:'源码',exact:true}).tap();await expect(page.locator('.source-editor')).toContainText('hello');await expect(page.locator('.source-editor')).toContainText('新项目');
+});
+
+test('Tapping the empty continuation under a newly inserted nested code block keeps the first star',async({page,context})=>{
+  await start(page,'- 一级项目\n\n  - 二级项目');await page.getByRole('tab',{name:'编辑',exact:true}).tap();
+  await page.locator('.ProseMirror p').filter({hasText:'二级项目'}).tap();await page.keyboard.press('End');await format(page,'代码块');
+  const code=page.locator('.milkdown-code-block');await code.locator('.cm-content').tap();await page.keyboard.insertText('hello');
+  await code.scrollIntoViewIfNeeded();const box=(await code.boundingBox())!;
+  await page.touchscreen.tap(box.x+12,box.y+box.height+6);const cdp=await context.newCDPSession(page);
+  try{await cdp.send('Input.imeSetComposition',{text:'*',selectionStart:1,selectionEnd:1});await cdp.send('Input.insertText',{text:'*'});}
+  finally{await cdp.detach();}
+  await expect(page.locator('.list-item .content-dom > p').last()).toHaveText('*');await page.keyboard.press('Space');await page.keyboard.insertText('新嵌套项');
+  const item=page.locator('.ProseMirror .list-item p').filter({hasText:'新嵌套项'});await expect(item).toBeVisible();expect(await depth(item)).toBe(3);
+  await expect(code.locator('.cm-content')).toHaveText('hello');
+});
+
+for(const exit of ['arrow','touch','composition'])test(`A star after leaving code is preserved (${exit})`,async({page,context})=>{
+  await start(page,'- 原列表\n\n```js\nconsole.log(1);\n```\n\n');await page.getByRole('tab',{name:'编辑',exact:true}).tap();
+  await page.locator('.milkdown-code-block .cm-content').tap();await page.keyboard.press('Control+End');
+  if(exit==='arrow')await page.keyboard.press('ArrowDown');
+  else{await format(page,'换行');await page.locator('.ProseMirror > p').last().tap();}
+  if(exit==='composition'){
+    const cdp=await context.newCDPSession(page);
+    try{await cdp.send('Input.imeSetComposition',{text:'*',selectionStart:1,selectionEnd:1});await cdp.send('Input.insertText',{text:'*'});}
+    finally{await cdp.detach();}
+  }else await page.keyboard.insertText('*');
+  await expect(page.locator('.ProseMirror > p').filter({hasText:/^\*$/})).toBeVisible();
+  await page.keyboard.press('Space');await page.keyboard.insertText('星号列表');
+  await expect(page.locator('.ProseMirror .list-item p').filter({hasText:'星号列表'})).toBeVisible();
+});
+
 test('Nested list resources keep their indentation on phone; touch actions insert paragraphs between adjacent blocks',async({page})=>{
   await start(page);await page.getByRole('tab',{name:'编辑',exact:true}).click();await expect(page.locator('.editor-host')).not.toHaveAttribute('data-editor-pending','true');
   const code=page.locator('.milkdown-code-block'),table=page.locator('.ProseMirror table.children'),image=page.locator('.visual-attachment');await expect(code).toHaveCount(1);await expect(table).toHaveCount(1);await expect(image).toHaveCount(1);
@@ -14,22 +67,22 @@ test('Nested list resources keep their indentation on phone; touch actions inser
   const nested=page.locator('.ProseMirror p').filter({hasText:'二级项目'}).first(),left=(await nested.boundingBox())!.x;
   for(const block of [code,table,image]){const box=(await block.boundingBox())!;expect(box.x).toBeGreaterThanOrEqual(left-6);expect(box.x).toBeLessThan(left+24);}
   expect(await page.locator('.mobile-document').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
-  await code.locator('.cm-content').tap({position:{x:18,y:14}});await format(page,'块后换行');await page.keyboard.insertText('代码和表格之间');const between=page.locator('.ProseMirror p').filter({hasText:'代码和表格之间'});await expect(between).toBeVisible();expect(await depth(between)).toBe(2);
-  await table.locator('td p').first().tap();await format(page,'块后换行');await page.keyboard.insertText('表格和图片之间');const afterTable=page.locator('.ProseMirror p').filter({hasText:'表格和图片之间'});await expect(afterTable).toBeVisible();expect(await depth(afterTable)).toBe(2);
-  if(!await image.locator('.syntax-raw').isVisible()){const id=await image.getAttribute('data-attachment-preview');await page.locator('#'+id).tap();}await image.locator('.syntax-raw').tap();await format(page,'块后换行');await page.keyboard.insertText('图片之后');const afterImage=page.locator('.ProseMirror p').filter({hasText:'图片之后'});await expect(afterImage).toBeVisible();expect(await depth(afterImage)).toBe(2);
+  await code.locator('.cm-content').tap({position:{x:18,y:14}});await format(page,'换行');await page.keyboard.insertText('代码和表格之间');const between=page.locator('.ProseMirror p').filter({hasText:'代码和表格之间'});await expect(between).toBeVisible();expect(await depth(between)).toBe(2);
+  await table.locator('td p').first().tap();await format(page,'换行');await page.keyboard.insertText('表格和图片之间');const afterTable=page.locator('.ProseMirror p').filter({hasText:'表格和图片之间'});await expect(afterTable).toBeVisible();expect(await depth(afterTable)).toBe(2);
+  if(!await image.locator('.syntax-raw').isVisible()){const id=await image.getAttribute('data-attachment-preview');await page.locator('#'+id).tap();}await image.locator('.syntax-raw').tap();await format(page,'换行');await page.keyboard.insertText('图片之后');const afterImage=page.locator('.ProseMirror p').filter({hasText:'图片之后'});await expect(afterImage).toBeVisible();expect(await depth(afterImage)).toBe(2);
   await page.getByRole('tab',{name:'源码',exact:true}).click();const source=page.locator('.source-editor');for(const line of ['    代码和表格之间','    表格和图片之间','    图片之后'])await expect(source).toContainText(line);await expect(source).toContainText('![图片](list.assets/attachments/a.svg)');
   await page.getByRole('tab',{name:'阅读',exact:true}).click();await expect(page.locator('.reading-view li li')).toContainText('代码和表格之间');await expect(page.locator('.reading-view')).toContainText('图片之后');await page.screenshot({path:path.join(work,'android-list-blocks.png')});
 });
 
 test('Enter on a list continuation advances an item and exits one list level at a time',async({page})=>{
-  await start(page,'- 一级项目\n\n  - 二级项目\n\n    ```js {id=0001}\n    console.log(1);\n    ```\n');await page.getByRole('tab',{name:'编辑',exact:true}).click();await expect(page.locator('.editor-host')).not.toHaveAttribute('data-editor-pending','true');const code=page.locator('.milkdown-code-block');await code.locator('.cm-content').tap();await format(page,'块后换行');
+  await start(page,'- 一级项目\n\n  - 二级项目\n\n    ```js {id=0001}\n    console.log(1);\n    ```\n');await page.getByRole('tab',{name:'编辑',exact:true}).click();await expect(page.locator('.editor-host')).not.toHaveAttribute('data-editor-pending','true');const code=page.locator('.milkdown-code-block');await code.locator('.cm-content').tap();await format(page,'换行');
   await page.keyboard.press('Enter');await page.keyboard.insertText('新的同级项');const item=page.locator('.ProseMirror p').filter({hasText:'新的同级项'});await expect(item).toBeVisible();expect(await depth(item)).toBe(2);
   await page.keyboard.press('Enter');await page.keyboard.press('Enter');await page.keyboard.insertText('回到一级');expect(await depth(page.locator('.ProseMirror p').filter({hasText:'回到一级'}))).toBe(1);
   await page.keyboard.press('Enter');await page.keyboard.press('Enter');await page.keyboard.insertText('回到正文');expect(await depth(page.locator('.ProseMirror p').filter({hasText:'回到正文'}))).toBe(0);
 });
 
 test('Table scale is independent, persists, changes reading and editing, and never adds a visible scrolling hint',async({page})=>{
-  await start(page);await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByLabel('表格缩放',{exact:true}).fill('50');await page.getByRole('button',{name:'笔记',exact:true}).click();await page.locator('[data-path="list.md"] .mobile-file-open').click();const table=page.locator('.reading-view table');expect(await table.evaluate(element=>getComputedStyle(element).fontSize)).toBe('8.5px');expect(await page.getByRole('region',{name:'表格，可左右滑动'}).evaluate(element=>getComputedStyle(element,'::before').content)).toBe('none');
+  await start(page);await page.getByRole('button',{name:'返回笔记',exact:true}).click();await openMobileSettings(page);await page.getByLabel('表格缩放',{exact:true}).fill('50');await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.locator('[data-path="list.md"] .mobile-file-open').click();const table=page.locator('.reading-view table');expect(await table.evaluate(element=>getComputedStyle(element).fontSize)).toBe('8.5px');expect(await page.getByRole('region',{name:'表格，可左右滑动'}).evaluate(element=>getComputedStyle(element,'::before').content)).toBe('none');
   await page.reload();await expect(table).toBeVisible();expect(await table.evaluate(element=>getComputedStyle(element).fontSize)).toBe('8.5px');await page.getByRole('tab',{name:'编辑',exact:true}).click();expect(await page.locator('.ProseMirror table.children').evaluate(element=>getComputedStyle(element).fontSize)).toBe('8.5px');await expect(page.getByRole('button',{name:'保存文档',exact:true})).toHaveCount(0);expect(await page.evaluate(()=>(window as any).__mobileState.files['list.md'].content)).toBe(raw);
 });
 

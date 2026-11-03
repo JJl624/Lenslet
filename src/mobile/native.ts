@@ -6,13 +6,16 @@ import {confirmMobileClose} from './MobileSaveConfirmation';
 import {CoalescedWrites} from '../../shared/coalesced-writes.mjs';
 
 type Reply = { ok: boolean; data?: any; error?: { message: string; code?: string; current?: DiskDocument } };
-declare global { interface Window { MoyuNative?: { postMessage(message: string): void; onmessage: ((event: MessageEvent<string>) => void) | null }; } }
+declare global { interface Window { MoyuNative?: { engine?: 'gecko'|'webview'; connected?:boolean; postMessage(message: string): void; onmessage: ((event: MessageEvent<string>) => void) | null }; } }
 const listeners = new Set<(workspace: Workspace) => void>();
 let sequence = 0;
 const pending = new Map<string, { resolve(value: Reply): void; reject(error: Error): void }>();
+const disconnected=()=>Error('与应用的连接已断开，请重新打开应用。');
+window.addEventListener('moyu-native-disconnected',()=>{for(const job of pending.values())job.reject(disconnected());pending.clear();});
 export const nativeAvailable = () => !!window.MoyuNative;
 function sendRequest(method: string, ...args: unknown[]): Promise<Reply> {
   if (!window.MoyuNative) return Promise.reject(Error('请在安卓版中使用此功能。'));
+  if(window.MoyuNative.connected===false)return Promise.reject(disconnected());
   const id = String(++sequence);
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject });

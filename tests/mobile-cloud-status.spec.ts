@@ -1,4 +1,5 @@
-import {test,expect} from '@playwright/test';
+import {openMobileSettings} from './helpers/mobile-controls.mjs';
+import {test,expect} from './helpers/mobile-test';
 import {mockAndroid} from './helpers/mobile-native-mock';
 import {mobileDavFixture,runMobileSync} from './helpers/mobile-dav-fixture';
 import {davServer} from './helpers/dav-server.cjs';
@@ -15,11 +16,11 @@ test('Nested folders retain their hierarchy, collapse reliably and place new fil
 
 test('File and folder cloud states reflect saved changes, remote updates, conflicts and restart',async({page})=>{
   const dav=await davServer();try{
-    await mobileDavFixture(page,dav);await runMobileSync(page);await page.getByRole('button',{name:'返回设置',exact:true}).click();await page.getByRole('button',{name:'笔记',exact:true}).click();
+    await mobileDavFixture(page,dav);await runMobileSync(page);await page.getByRole('button',{name:'返回设置',exact:true}).click();await page.getByRole('button',{name:'返回笔记',exact:true}).click();
     const row=(path:string)=>page.locator('.mobile-file-tree [data-path="'+path+'"]');
     await expect(row('开始使用.md').locator('[data-sync-state]')).toHaveAttribute('data-sync-state','synced');await expect(row('读书笔记').locator('[data-sync-state]')).toHaveAttribute('data-sync-state','synced');
     await page.evaluate(()=>{(window as any).__mobileState.files['开始使用.md'].content='# 本地修改';window.dispatchEvent(new Event('moyu-mobile-resume'));});await expect(row('开始使用.md').locator('[data-sync-state]')).toHaveAttribute('data-sync-state','pending');
-    dav.files.set('/读书笔记/第一章.md',Buffer.from('# 另一端更新'));await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByRole('button',{name:'WebDAV 同步',exact:true}).click();await page.getByRole('button',{name:'查看云端目录',exact:false}).click();await page.getByRole('button',{name:'返回同步设置',exact:true}).click();await page.getByRole('button',{name:'返回设置',exact:true}).click();await page.getByRole('button',{name:'笔记',exact:true}).click();
+    dav.files.set('/读书笔记/第一章.md',Buffer.from('# 另一端更新'));await openMobileSettings(page);await page.getByRole('button',{name:'WebDAV 同步',exact:true}).click();await page.getByRole('button',{name:'查看云端目录',exact:false}).click();await page.getByRole('button',{name:'返回同步设置',exact:true}).click();await page.getByRole('button',{name:'返回设置',exact:true}).click();await page.getByRole('button',{name:'返回笔记',exact:true}).click();
     await expect(row('读书笔记').locator('[data-sync-state]')).toHaveAttribute('data-sync-state','remote');await row('读书笔记').locator('.mobile-file-open').click();await expect(row('读书笔记/第一章.md').locator('[data-sync-state]')).toHaveAttribute('data-sync-state','remote');
     dav.files.set('/开始使用.md',Buffer.from('# 云端冲突'));await page.getByRole('button',{name:'立即同步',exact:true}).click();await expect(page.getByRole('button',{name:'立即同步',exact:true})).toContainText('1 项需处理');await expect(row('开始使用.md').locator('[data-sync-state]')).toHaveAttribute('data-sync-state','conflict');await expect(page.getByRole('button',{name:'立即同步',exact:true})).toContainText('1 项需处理');
     await page.reload();await expect(page.getByRole('tab',{name:'阅读',exact:true})).toBeVisible();await page.getByRole('button',{name:'返回笔记',exact:true}).click();await expect(row('开始使用.md').locator('[data-sync-state]')).toHaveAttribute('data-sync-state','conflict');
@@ -28,7 +29,7 @@ test('File and folder cloud states reflect saved changes, remote updates, confli
 
 test('Foreground automatic sync requests first-run confirmation and uploads after a deliberate save',async({page})=>{
   const dav=await davServer();try{
-    await mobileDavFixture(page,dav);await page.getByText('同步选项',{exact:true}).click();await page.getByLabel('启动或回到前台时同步',{exact:true}).check();await page.getByLabel('保存后同步',{exact:true}).check();await page.getByRole('button',{name:'返回设置',exact:true}).click();await page.getByRole('button',{name:'笔记',exact:true}).click();await page.evaluate(()=>window.dispatchEvent(new Event('moyu-mobile-resume')));
+    await mobileDavFixture(page,dav);await page.getByText('同步选项',{exact:true}).click();await page.getByLabel('启动或回到前台时同步',{exact:true}).check();await page.getByLabel('保存后同步',{exact:true}).check();await page.getByRole('button',{name:'返回设置',exact:true}).click();await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.evaluate(()=>window.dispatchEvent(new Event('moyu-mobile-resume')));
     await expect(page.getByRole('button',{name:'立即同步',exact:true})).toContainText('首次同步待确认');expect(dav.files.size).toBe(0);
     await page.getByRole('button',{name:'立即同步',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'已上传'})).toBeVisible();await expect(page.getByRole('button',{name:'立即同步',exact:true})).toBeEnabled();
     await page.locator('[data-path="开始使用.md"] .mobile-file-open').click();await page.getByRole('tab',{name:'源码',exact:true}).click();await page.locator('.source-editor .cm-content').fill('# 自动同步后的内容');await page.getByRole('button',{name:'保存文档',exact:true}).click();await expect.poll(()=>page.evaluate(async()=>{const state=(window as any).__mobileState,{readSummary,syncKey}=await import('/src/mobile/syncState.ts');return readSummary(await syncKey(state.root,state.davConnections[state.root])).pendingUploads;}),{timeout:45000}).toEqual(['开始使用.md']);expect(dav.files.get('/开始使用.md')?.toString()).not.toBe('# 自动同步后的内容');

@@ -1,8 +1,8 @@
 import type { Page } from '@playwright/test';
 
 /** Storage boundary only: all editor, navigation, reference and save code is real. */
-export async function mockAndroid(page:Page,initial?:{files:Record<string,{content:string;base64?:string;updated?:number}>;folders?:string[]}) {
-  await page.addInitScript((initial)=>{
+export async function mockAndroid(page:Page,initial?:{files:Record<string,{content:string;base64?:string;updated?:number}>;folders?:string[];engine?:'gecko'|'webview'}) {
+  await page.addInitScript((initial)=>{if(window!==window.top)return;
     Object.defineProperty(window,'queryLocalFonts',{value:undefined,configurable:true});
     const original=localStorage.getItem('moyu-android-test');
     const state=original?JSON.parse(original):{files:{'开始使用.md':{content:'# 开始使用\n\n普通文字，可以在手机上编辑。\n\n> [+] 折叠内容\n> 这是一段可收起的文字。\n\n```javascript\nconsole.log(42);\n```\n',updated:Date.now()},'读书笔记/第一章.md':{content:'# 第一章\n\n重要内容。',updated:Date.now()}},folders:['读书笔记'],settings:{},drafts:{},history:{},trash:[],root:'internal'};
@@ -12,7 +12,7 @@ export async function mockAndroid(page:Page,initial?:{files:Record<string,{conte
     const calls:Record<string,number>={};(window as any).__mobileCalls=calls;
     state.keyboardVisible=false;
     const keyboard=(visible:boolean)=>{state.keyboardVisible=visible;window.dispatchEvent(new CustomEvent('moyu-mobile-keyboard',{detail:visible}));};
-    const typing=()=>!!document.activeElement?.closest('.ProseMirror,.cm-content,textarea,input:not([type=range]):not([type=checkbox])');
+    const typing=()=>document.activeElement?.getAttribute('inputmode')!=='none'&&!!document.activeElement?.closest('.ProseMirror,.cm-content,textarea,input:not([type=range]):not([type=checkbox])');
     document.addEventListener('focusin',()=>{if(typing())keyboard(true);});
     document.addEventListener('focusout',()=>queueMicrotask(()=>{if(!typing())keyboard(false);}));
     const bytes=(value:any)=>value.base64?Uint8Array.from(atob(value.base64),c=>c.charCodeAt(0)):new TextEncoder().encode(value.content);
@@ -30,9 +30,15 @@ export async function mockAndroid(page:Page,initial?:{files:Record<string,{conte
       if(action.startsWith('mobile.')&&input.root&&input.root!==state.root)throw Error('知识库已切换。');
       if(action==='preferences.get')return state.settings;
       if(action==='preferences.set-many'){Object.assign(state.settings,input.values);persist();return true;}
+      if(action==='mobile.sync-baseline-read'){state.syncBaselines||={};if(!state.syncBaselines[input.key])state.syncBaselines[input.key]=structuredClone(JSON.parse(state.settings[input.key]||'null')||input.initial||{});if(state.settings[input.key]){delete state.settings[input.key];persist();}return structuredClone(state.syncBaselines[input.key]);}
+      if(action==='mobile.sync-baseline-record'){state.syncBaselines||={};const baseline=state.syncBaselines[input.key]||={};if(input.value===null)delete baseline[input.path];else baseline[input.path]=structuredClone(input.value);persist();return true;}
+      if(action==='mobile.sync-baseline-checkpoint'){persist();return true;}
       if(action==='code.counter')return{next:1};if(action==='code.normalize')return{};
       if(action==='mobile.theme'){state.systemBars=input;return true;}if(action==='mobile.finish')return true;
       if(action==='mobile.keyboard-visible')return !!state.keyboardVisible;
+      if(action==='mobile.viewport')return state.viewport||null;
+      if(action==='mobile.keyboard-show'){keyboard(true);return true;}
+      if(action==='mobile.touch-settings')return state.touchSettings||{longPressTimeout:500,doubleTapTimeout:300,touchSlop:8};
       if(action==='mobile.copy-text'||action==='clipboard.write'){state.clipboard=input.text;return true;}
       if(action==='mobile.share-files'){state.sharedFiles=input.paths;return true;}
       if(action==='mobile.file-location')return '/data/user/0/app.moyu.notes/files/vault/'+input.path;
@@ -41,6 +47,12 @@ export async function mockAndroid(page:Page,initial?:{files:Record<string,{conte
       if(action==='mobile.draft'){state.drafts[input.path]=input;persist();return true;}
       if(action==='mobile.draft-clear'){delete state.drafts[input.path];persist();return true;}
       if(action==='file.exists')return !!state.files[input.path]||state.folders.includes(input.path)||Object.keys(state.files).some(path=>path.startsWith(input.path+'/'));
+        if(action==='mobile.html-result-update'){
+          const document=JSON.parse(state.files[input.metadata].content),consolidated=input.metadata.endsWith('/document.json'),record=consolidated?document.results?.[input.id]:document,item=record?.items.find((item:any)=>item.index===input.index);if(!item)throw Error('HTML 结果已移除，请重新打开文档。');
+          const height=Math.max(160,Math.min(900,input.height||item.height||360)),pinned=input.pinned!==false;
+          if(pinned)item.height=height;else{record.items=record.items.filter((item:any)=>item.index!==input.index);delete state.files[consolidated?input.metadata.replace(/document\.json$/,'results/'+input.id+'/'+input.index+'.html'):input.metadata.replace(/results\.json$/,input.index+'.html')];}
+          if(consolidated||record.items.length)state.files[input.metadata]={content:JSON.stringify(document),updated:Date.now()};else delete state.files[input.metadata];persist();return{pinned,height};
+        }
       if(action==='drawing.read')return read(input.path);
       if(action==='drawing.save')return invoke('save',[input.path,input.content,input.version]);
       if(action==='file.binary-read'){const value=await read(input.path);return{...value,content:''};}
@@ -82,7 +94,7 @@ export async function mockAndroid(page:Page,initial?:{files:Record<string,{conte
       if(method==='importFiles')return[];if(method==='openVault')return null;
       throw Error('Unmocked native method: '+method);
     };
-    window.MoyuNative={onmessage:null,postMessage(message:string){const request=JSON.parse(message),key=request.method==='feature'?request.args[0]:request.method;calls[key]=(calls[key]||0)+1;void invoke(request.method,request.args).then(data=>window.MoyuNative!.onmessage?.({data:JSON.stringify({id:request.id,ok:true,data})} as MessageEvent<string>)).catch(error=>window.MoyuNative!.onmessage?.({data:JSON.stringify({id:request.id,ok:false,error:{message:error.message,code:error.code,current:error.current}})} as MessageEvent<string>));}};
+    window.MoyuNative={engine:initial?.engine,onmessage:null,postMessage(message:string){const request=JSON.parse(message),key=request.method==='feature'?request.args[0]:request.method;calls[key]=(calls[key]||0)+1;void invoke(request.method,request.args).then(data=>window.MoyuNative!.onmessage?.({data:JSON.stringify({id:request.id,ok:true,data})} as MessageEvent<string>)).catch(error=>window.MoyuNative!.onmessage?.({data:JSON.stringify({id:request.id,ok:false,error:{message:error.message,code:error.code,current:error.current}})} as MessageEvent<string>));}};
   },initial||null);
   await page.route('https://appassets.androidplatform.net/vault/**',async route=>{
     const path=decodeURIComponent(new URL(route.request().url()).pathname.slice(7));

@@ -53,12 +53,6 @@
 .mobile-sync-spinning { animation: mobile-sync-spin 1s linear infinite; }
 @keyframes mobile-sync-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .mobile-sync-spinning { animation: none; } }
-.mobile-bottom-nav { display: grid; grid-template-columns: repeat(2,1fr); background: var(--bg); border-top: 1px solid var(--border); padding: 4px 12px 5px; flex-shrink: 0; }
-.mobile-bottom-nav button { display: flex; align-items: center; flex-direction: column; gap: 2px; font-size: max(10px, calc(var(--mobile-ui-size, 14px) * 0.785714)); color: var(--secondary); padding: 0; }
-.mobile-bottom-nav button > span { display: grid; place-items: center; width: 44px; height: 27px; border-radius: 8px; }
-.mobile-bottom-nav button[aria-current] { color: var(--accent); font-weight: 600; }
-.mobile-bottom-nav button[aria-current] > span { background: var(--selected); }
-.mobile-bottom-nav button svg { color: inherit; }
 .mobile-empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 60px 16px; gap: 14px; color: var(--secondary); }
 .mobile-empty > svg { color: var(--accent); opacity: .7; }
 .mobile-empty h2 { margin: 0; font-size: max(10px, calc(var(--mobile-ui-size, 14px) * 1.285714)); font-weight: 600; }
@@ -117,6 +111,9 @@
 .mobile-document-title strong { display: block; color: var(--heading); font-size: max(10px, calc(var(--mobile-ui-size, 14px) * 1.071429)); font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .mobile-document-title small { display: block; font-size: max(10px, calc(var(--mobile-ui-size, 14px) * 0.714286)); color: var(--secondary); margin-top: 2px; }
 .mobile-app .mobile-save-button { font-size: max(10px,calc(var(--mobile-ui-size,14px)*.857143)); padding: 0 4px; color: var(--secondary); }
+.mobile-save-slot { display:flex; flex:0 0 44px; width:44px; height:44px; }
+.mobile-editor-header > button:not(.mobile-document-title) { flex:0 0 44px; width:44px; }
+.mobile-save-slot > button { width:44px; padding:0; }
 .mobile-mode-bar { display: flex; gap: 0; align-items: center; padding: 0 4px; background: var(--bg); border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .mobile-mode-tabs { display: flex; margin-right: auto; flex-shrink: 0; }
 .mobile-app .mobile-mode-tabs button { flex: 0 0 44px; width: 44px; min-width: 44px; padding: 0 2px; border-radius: 0; background: transparent; font-size: max(10px,calc(var(--mobile-ui-size,14px)*.857143)); color: var(--secondary); }
@@ -129,7 +126,7 @@
 .mobile-document { flex: 1; min-height: 0; min-width: 0; overflow: auto; margin: 0; width: 100%; height: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .mobile-app .editor-host { height: auto; min-height: 100%; width: 100%; padding: 0; background: var(--bg); }
 .mobile-app .editor-host .milkdown { min-height: 100%; width: 100%; margin: 0; padding: 0; font-size: var(--mobile-size); }
-.mobile-app .editor-host .milkdown .ProseMirror { width: 100%; max-width: none; min-height: 100%; margin: 0; padding: 16px 16px 72px; line-height: var(--mobile-line); font-size: var(--mobile-size); font-family: var(--font-ui); color: var(--text); overflow-wrap: anywhere; }
+.mobile-app .editor-host .milkdown .ProseMirror { width: 100%; max-width: none; min-height: 100%; margin: 0; padding: 16px 16px max(72px,calc(2lh + 16px)); line-height: var(--mobile-line); font-size: var(--mobile-size); font-family: var(--font-ui); color: var(--text); overflow-wrap: anywhere; }
 .mobile-app .reading-view { width: 100%; max-width: none; margin: 0; padding: 16px 16px 60px; font-size: var(--mobile-size); line-height: var(--mobile-line); }
 .mobile-app .reading-view :is(h1,h2,h3,h4,h5,h6) { scroll-margin-top: 16px; }
 .mobile-app .reading-view { overflow-wrap: anywhere; }
@@ -138,7 +135,7 @@
 .mobile-app .reading-view :is(ul,ol) { padding-left: 1.4em; }
 .mobile-app .reading-view .contains-task-list { padding-left: 24px; }
 .mobile-app .reading-view blockquote { padding: 1px 10px; margin: 1em 0; }
-.mobile-app .reading-view .folding-quote { padding: 0 8px; }
+.mobile-app .reading-view .folding-quote { padding: 0; }
 .mobile-app .reading-view .katex-display { max-width: 100%; overflow-x: auto; overflow-y: hidden; padding-block: 4px; }
 .mobile-app .editor-host .milkdown .ProseMirror h1 { font-size: 1.8em; }
 .mobile-app .editor-host .milkdown .ProseMirror h2 { font-size: 1.45em; }
@@ -152,7 +149,7 @@
 .mobile-app .editor-host .milkdown .ProseMirror :is(table,pre),.mobile-app .reading-view pre { max-width: 100%; }
 .mobile-app .source-editor { height: 100%; width: 100%; min-height: 180px; padding: 0; margin: 0; border: 0; }
 .mobile-app .source-editor .cm-editor { height: 100%; font-size: var(--mobile-size); }
-.mobile-app .source-editor .cm-scroller { line-height: var(--mobile-line); overflow: auto; padding: 12px 0 60px; }
+.mobile-app .source-editor .cm-scroller { line-height: var(--mobile-line); overflow: auto; padding: 12px 0 max(60px,calc(2lh + 16px)); }
 .mobile-app .source-editor .cm-content { padding: 0; overflow-wrap: anywhere; }
 .mobile-app .editor-host .milkdown .ProseMirror .milkdown-code-block { margin: 12px 0; padding: 0 8px 6px; max-width: 100%; }
 .mobile-app .editor-host .milkdown .ProseMirror .milkdown-code-block :is(.cm-editor,.cm-scroller,.milkdown-code-block-placeholder) { font-size: var(--mobile-code-size); line-height: 1.7; }
@@ -172,18 +169,17 @@
 .mobile-shortcut-row { gap: 4px; }
 .mobile-format-scroll::-webkit-scrollbar { display: none; }
 .mobile-formatbar > button:first-of-type { border-left: 1px solid var(--border); border-radius: 0; }
-.mobile-app .ProseMirror .folding-quote > p:first-child { padding-left: 48px; }
-.mobile-app .ProseMirror .folding-quote-toggle { width: 44px; height: 44px; top: calc((1lh - 44px) / 2); }
-.mobile-app .reading-view .folding-quote > summary { min-height: 44px; display: list-item; align-content: center; }
+.mobile-app .editor-host .milkdown .ProseMirror .folding-quote,
+.mobile-app .reading-view .folding-quote { --fold-gutter:24px; --fold-padding:max(6px,calc((44px - 1.6em)/2)); }
 .mobile-app .reading-view :is(img,.mermaid-diagram,.resource-preview)[role=button] { cursor: zoom-in; }
 .mobile-app .reading-view .code-block-shell { --size-readingCode: var(--mobile-code-size); max-width: 100%; overflow: hidden; margin: 12px 0; }
 .mobile-code-copy { display: block; margin-left: auto; padding: 0 10px; color: var(--secondary); font: max(10px,calc(var(--mobile-ui-size,14px)*.857143))/1.4 var(--font-ui); }
 .mobile-app .reading-view .code-block-shell pre { overscroll-behavior-x: contain; margin-top: 0; }
-.mobile-app .reading-view .code-block-shell:not(:has(>.tabbed-code),.mobile-diagram-shell) { padding-top: 40px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
-.mobile-app .reading-view .code-block-shell:not(:has(>.tabbed-code),.mobile-diagram-shell)::before { content: attr(data-language); position: absolute; left: 8px; top: 10px; font: 12px/16px var(--font-ui); color: var(--secondary); }
+.mobile-app .reading-view .code-block-shell:not(:has(>.tabbed-code),.mobile-diagram-shell,[data-html-source]) { padding-top: 40px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+.mobile-app .reading-view .code-block-shell:not(:has(>.tabbed-code),.mobile-diagram-shell,[data-html-source])::before { content: attr(data-language); position: absolute; left: 8px; top: 10px; font: 12px/16px var(--font-ui); color: var(--secondary); }
 .mobile-app .reading-view .code-block-shell:not(:has(>.tabbed-code),.mobile-diagram-shell) > .mobile-code-copy { position: absolute; top: 0; right: 2px; }
-.mobile-app .reading-view .code-block-shell:not(:has(>.tabbed-code),.mobile-diagram-shell) > pre { padding: 0 8px 8px; border: 0; border-radius: 0; }
-.mobile-app .reading-view .code-block-shell:has(>.tabbed-code) { padding: 0 8px 6px; }
+.mobile-app .reading-view .code-block-shell:not(:has(>.tabbed-code),.mobile-diagram-shell) > pre { padding: 0 8px; border: 0; border-radius: 0; }
+.mobile-app .reading-view .code-block-shell:has(>.tabbed-code) { padding: 0 8px; }
 .mobile-formatbar button { flex: 0 0 44px; padding: 10px; border-radius: 8px; color: var(--secondary); }
 .mobile-formatbar button:active { color: var(--accent); }
 .mobile-formatbar button[aria-pressed='true'] { color: var(--accent); background: var(--accent-soft); }
@@ -205,6 +201,12 @@
 
 .mobile-sheet { position: fixed; inset: auto 0 0; margin: 0 auto; width: 100%; max-width: 600px; max-height: calc(var(--mobile-viewport-height,100dvh) - 24px); border: 1px solid var(--border-strong); border-bottom: 0; border-radius: 16px 16px 0 0; background: var(--bg); color: var(--text); padding: 0; overflow: hidden; overscroll-behavior: contain; box-shadow: 0 -8px 40px #0002; }
 .mobile-sheet[open] { display: flex; flex-direction: column; }
+.mobile-sheet-layer { position:fixed; inset:0 0 auto; height:var(--mobile-viewport-height,100dvh); z-index:1100; isolation:isolate; contain:layout style; }
+.mobile-sheet-backdrop { position:absolute; inset:0; background:#0007; touch-action:none; will-change:opacity; animation:mobile-dim-in .12s ease-out; }
+.mobile-sheet-layer > .mobile-sheet { position:absolute; z-index:1; will-change:transform; animation:mobile-sheet-in .16s cubic-bezier(.2,.8,.2,1); box-shadow:0 -4px 16px #0002; }
+@keyframes mobile-dim-in { from{opacity:0} to{opacity:1} }
+@keyframes mobile-sheet-in { from{transform:translateY(12px)} to{transform:translateY(0)} }
+@media (prefers-reduced-motion:reduce) { .mobile-sheet-backdrop,.mobile-sheet-layer > .mobile-sheet { animation:none; will-change:auto; } }
 .mobile-sheet::backdrop { background: #0007; }
 .mobile-sheet header { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; min-height: 48px; padding: 2px 8px 2px 16px; border-bottom: 1px solid var(--border); }
 .mobile-sheet-content { padding: 10px 12px 16px; overflow: auto; overscroll-behavior-y: contain; min-height: 0; }
@@ -317,18 +319,17 @@
 .mobile-media-content > img { width: 100%; height: auto; object-fit: contain; pointer-events: none; }
 .mobile-media-svg { width: 100%; pointer-events: none; }.mobile-media-svg svg { width: 100% !important; height: auto !important; max-width: none !important; }
 .mobile-media-viewer footer { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 8px 12px; font-size: max(10px,calc(var(--mobile-ui-size,14px)*.785714)); color: var(--secondary); border-top: 1px solid var(--border); }
-@media (max-height: 480px) { .mobile-editor-header { padding-top: 0; padding-bottom: 0; }.mobile-document-title small { display: none; }.mobile-sheet-content { padding-bottom: 10px; } }
+/* IME resizing must not change the header height or hide the document status. */
 /* Desktop scrollbar skins reserve layout space in Android WebView, too. */
 .mobile-app,.mobile-app *,.mobile-sheet,.mobile-sheet * { scrollbar-width: none; scrollbar-gutter: auto; }
 :is(.mobile-app,.mobile-sheet)::-webkit-scrollbar,:is(.mobile-app,.mobile-sheet) *::-webkit-scrollbar { width: 0; height: 0; }
 :is(.mobile-app,.mobile-sheet) button { user-select: none; -webkit-touch-callout: none; }
 html[data-mobile-input='touch'] :is(.mobile-app,.mobile-sheet) :is(button,a,summary,[tabindex],select,input[type=range],input[type=checkbox]):focus { outline: none; box-shadow: none; }
 @media (hover: none) { :is(.mobile-app,.mobile-sheet) button { transition: none; } }
-@media (min-width: 700px) { .mobile-home-content { width: min(100%,820px); align-self: center; padding-left: 28px; padding-right: 28px; }.mobile-app .editor-host .milkdown .ProseMirror,.mobile-app .reading-view { max-width: 820px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }.mobile-bottom-nav { padding-left: max(12px,calc((100vw - 600px)/2)); padding-right: max(12px,calc((100vw - 600px)/2)); } }
+@media (min-width: 700px) { .mobile-home-content { width: min(100%,820px); align-self: center; padding-left: 28px; padding-right: 28px; }.mobile-app .editor-host .milkdown .ProseMirror,.mobile-app .reading-view { max-width: 820px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }}
 
 /* Compact phone controls share one selection surface. */
-.mobile-app .mobile-bottom-nav button:is(:active,:hover,[aria-current]),.mobile-app .mobile-mode-tabs button:active { background: transparent; }
-.mobile-bottom-nav button:active > span { background: var(--selected); }
+.mobile-app .mobile-mode-tabs button:active { background: transparent; }
 .mobile-setting-row.mobile-select-row,.mobile-sync-option.mobile-select-row { display: block; min-height: 52px; border-bottom: 1px solid var(--border); }
 .mobile-setting-row > .mobile-select-heading,.mobile-select-heading { display: grid; grid-template-columns: max(92px,calc(var(--mobile-ui-size,14px)*4.2)) minmax(0,1fr); gap: 10px; min-height: 52px; align-items: center; }
 .mobile-select-heading > span { min-width: 0; }
@@ -355,13 +356,13 @@ html[data-mobile-input='touch'] :is(.mobile-app,.mobile-sheet) :is(button,a,summ
 .mobile-app .source-editor .cm-foldGutter { width: 10px; }
 .mobile-app .source-editor .cm-line { padding-inline: 2px 6px; }
 .mobile-app .milkdown-code-block .cm-gutters { padding: 0; border: 0; }
-.mobile-app .milkdown-code-block .cm-gutterElement { padding: 0 4px 0 0; min-width: 1.8ch; }
+.mobile-app .milkdown-code-block .cm-gutterElement { padding: 0 2px 0 0; min-width: 1.4ch; }
 .mobile-app .reading-view .mobile-code-copy { min-height: 40px; }
 .mobile-app .reading-view .mobile-diagram-shell { padding: 0; border: 0; background: transparent; }
 .mobile-app .reading-view .mobile-diagram-shell::before { content: none; }
 .mobile-app .reading-view pre code.mobile-numbered-code { display: block; white-space: normal; padding: 0; }
 .mobile-code-line { display: grid; grid-template-columns: var(--mobile-number-width) minmax(0,1fr); min-width: 0; }
-.mobile-code-line::before { content: attr(data-line); padding-right: .7ch; color: var(--muted); text-align: right; user-select: none; font-variant-numeric: tabular-nums; }
+.mobile-code-line::before { content: attr(data-line); padding-right: .9ch; color: var(--muted); text-align: right; user-select: none; font-variant-numeric: tabular-nums; }
 .mobile-code-source { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .mobile-app[data-code-wrap=false] .mobile-code-line { grid-template-columns: var(--mobile-number-width) max-content; min-width: max-content; }
 .mobile-app[data-code-wrap=false] .mobile-code-source { white-space: pre; overflow-wrap: normal; }
@@ -383,9 +384,27 @@ html[data-mobile-input='touch'] :is(.mobile-app,.mobile-sheet) :is(button,a,summ
 .mobile-app .mobile-select-popup > button { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; min-height:44px; padding:8px 12px; border-radius:5px; font:inherit; text-align:left; background:transparent; }
 .mobile-app .mobile-select-popup > button[aria-selected=true] { background:var(--selected); color:var(--accent); }
 .mobile-app .code-resize { touch-action:pan-y; user-select:none; }
-.mobile-app .code-resize.resize-ready { background:var(--selected); box-shadow:inset 0 -2px var(--accent); }
-.mobile-app .tabbed-code .tabs-bar { min-height:40px; gap:2px; padding:0 4px; }
-.mobile-app .tabbed-code .tabs-bar button { min-height:40px; padding:4px 9px; margin:0; }
+.mobile-app .code-resize { height:28px; flex:0 0 28px; margin:0; -webkit-touch-callout:none; }
+.mobile-app .code-resize::after,.mobile-app .attachment-viewport-resize::before { height:3px; top:50%; width:40px; left:calc(50% - 20px); }
+.mobile-app .attachment-viewport-resize { height:28px; flex:0 0 28px; margin:0; touch-action:pan-y; -webkit-touch-callout:none; }
+.mobile-app .milkdown-code-block .code-resize:not(.html-note-resize) { width:76px; margin-inline:auto; }
+.mobile-app .editor-host .milkdown .ProseMirror .milkdown-code-block { padding-bottom:0; }
+.mobile-app .tabbed-code .tabs-bar { min-height:28px; gap:2px; padding:0; }
+.mobile-app .tabbed-code .tabs-bar button { min-height:28px; padding:2px 8px; margin:0; font-size:12px; line-height:20px; }
+.mobile-app .tabbed-code .tabs-tools,.mobile-app .editor-host .milkdown .ProseMirror .tabbed-code .tools { min-height:30px; padding-block:0; }
+.mobile-app .tabbed-code .tabs-tools button,.mobile-app .editor-host .milkdown .ProseMirror .tabbed-code .tools :is(.language-button,.tools-button-group > button) { min-height:30px; }
+.mobile-app .tabbed-code .tabs-management { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; padding:4px 0; }
+.mobile-app .tabbed-code .tabs-management input { width:100%; height:36px; box-sizing:border-box; font-size:max(12px,calc(var(--mobile-ui-size,14px)*.857143)); }
+.mobile-app .tabbed-code .tabs-management input:nth-child(2) { grid-column:2 / span 2; }
+.mobile-app .tabbed-code .tabs-management button { min-width:0; min-height:32px; padding:2px 4px; }
+.mobile-app .tabbed-code .tabs-frame:has(>.tabs-management:not([hidden])) { min-height:146px; }
+.mobile-app .tabbed-code .cm-scroller { max-height:none; }
+.mobile-app .milkdown-code-block .cm-editor[style*='height'] > .cm-scroller { max-height:none; }
+.mobile-document { overflow-anchor:none; }
+.mobile-formatbar { height:max(50px,calc(var(--mobile-ui-size,14px)*2.5)); box-sizing:border-box; align-items:center; }
+.mobile-format-scroll { align-items:center; height:100%; overflow-y:hidden; }
+.mobile-formatbar button.mobile-context-format { height:44px; box-sizing:border-box; flex-shrink:0; padding-block:2px; }
+.mobile-formatbar[data-context-labels=false] button.mobile-context-format { padding:10px; }
 html[data-mobile-input=touch] .mobile-app .tabbed-code button:hover:not([aria-selected=true]):not([aria-pressed=true]):not(.active) { background:transparent; }
 
 .mobile-conflict-review { display:flex; flex-direction:column; flex:1; min-height:0; }
@@ -427,3 +446,6 @@ html[data-mobile-input=touch] .mobile-app .tabbed-code button:hover:not([aria-se
 .mobile-app .mobile-file-row > .mobile-file-open:active { background:transparent; }
 html[data-mobile-input=touch] :is(.mobile-app,.mobile-sheet) :is(.mobile-setting-link,.mobile-file-open):hover:not(:active) { background:transparent; }
 html[data-mobile-input=keyboard] :is(.mobile-app,.mobile-sheet) :is(button,a,summary,[role=combobox]):focus-visible { outline:2px solid var(--accent); outline-offset:-3px; }
+
+.mobile-actions > .mobile-vault-settings { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 12px; }
+.mobile-settings-heading > button { margin-left: -8px; }

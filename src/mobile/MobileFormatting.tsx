@@ -11,11 +11,11 @@ export const formatGroups:{label:string;items:MobileFormat[]}[]=[
   {label:'插入',items:[{action:'table',label:'表格',icon:Table2},{action:'codeblock',label:'代码块',icon:Code2},{action:'tabs',label:'标签页',icon:PanelsTopLeft},{action:'mathblock',label:'行间公式',icon:Brackets},{action:'divider',label:'分隔线',icon:Minus},{action:'attachment',label:'插入附件',icon:Paperclip}]},
   {label:'列表与引用',items:[{action:'indent',label:'增加缩进',short:'缩进',icon:IndentIncrease,context:'query'},{action:'outdent',label:'减少缩进',short:'退一级',icon:IndentDecrease,context:'query'},{action:'indentBlock',label:'缩进至列表',short:'入列表',icon:IndentIncrease,context:'query'},{action:'outdentBlock',label:'脱离列表',short:'脱离',icon:IndentDecrease,context:'query'},{action:'unquote',label:'去除一层引用',short:'去引用',icon:TextQuote,context:'query'},{action:'toggleFoldDefault',label:'默认展开',short:'默认展开',icon:ChevronsDown,context:'query'}]},
   {label:'表格操作',items:[{action:'rowAfter',label:'添加行',short:'加行',icon:Rows3,context:'table'},{action:'columnAfter',label:'添加列',short:'加列',icon:Columns3,context:'table'},{action:'deleteRow',label:'删除行',short:'删行',icon:Rows3,context:'table'},{action:'deleteColumn',label:'删除列',short:'删列',icon:Columns3,context:'table'},{action:'deleteTable',label:'删除表格',short:'删表格',icon:Trash2,context:'table'}]},
-  {label:'块操作',items:[{action:'paragraphAfter',label:'块后换行',short:'块后换行',icon:TextCursorInput,context:'block'}]},
+  {label:'块操作',items:[{action:'paragraphAfter',label:'换行',short:'换行',icon:TextCursorInput,context:'block'}]},
 ];
 export const formatLabel=(item:MobileFormat,open:boolean|undefined)=>item.action==='toggleFoldDefault'&&open?'默认折叠':item.label;
 export const allFormats=formatGroups.flatMap(group=>group.items);
-const copyTable:MobileFormat={action:'copyTable',label:'复制表格',short:'复制表格',icon:Copy,context:'query'};
+const copyTable:MobileFormat={action:'copyTable',label:'复制',short:'复制',icon:Copy,context:'query'};
 export const contextFormats=[...allFormats.filter(item=>!!item.context),copyTable];
 export const copyTypes={copyTable:'table'} as const;
 export function shortcutOrder(raw:string|null):string[]{
@@ -32,8 +32,10 @@ export function automaticFormats(state:MobileFormatState){
   const actions:MobileFormatAction[]=[];
   if(inside('table'))actions.push('rowAfter','columnAfter','paragraphAfter','outdentBlock','indentBlock','copyTable','deleteRow','deleteColumn','deleteTable');
   else if(resource)actions.push('paragraphAfter','outdentBlock','indentBlock');
-  else if(inside('list_item'))actions.push('indent','outdent');
-  else if(state.can.indentBlock)actions.push('indentBlock');
+  else if(inside('list_item')){
+    actions.push('indent');
+    if(state.ancestors.filter(type=>type==='list_item').length>1)actions.push('outdent');
+  }
   if(inside('blockquote'))actions.push('unquote','toggleFoldDefault');
   return actions.flatMap(action=>contextFormats.filter(item=>item.action===action&&formatEnabled(item,state)));
 }

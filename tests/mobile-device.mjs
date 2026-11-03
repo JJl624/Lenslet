@@ -6,7 +6,7 @@ const sdk=process.env.ANDROID_HOME||process.env.ANDROID_SDK_ROOT;
 if(!sdk)throw Error('Set ANDROID_HOME.');
 const serial=process.env.ANDROID_SERIAL||'emulator-5580';
 if(!serial.startsWith('emulator-'))throw Error('Run this regression on a disposable emulator.');
-const appPackage=process.env.MOYU_ANDROID_PACKAGE||'app.moyu.notes.debug',component=appPackage+'/app.moyu.notes.MainActivity';
+const appPackage=process.env.MOYU_ANDROID_PACKAGE||'com.lrj.moyu.webview.debug',component=appPackage+'/app.moyu.notes.MainActivity';
 const adb=path.join(sdk,'platform-tools',process.platform==='win32'?'adb.exe':'adb');
 const shell=(...args)=>execFileSync(adb,['-s',serial,...args],{windowsHide:true,encoding:'utf8'}).trim();
 const output=path.resolve(import.meta.dirname,'../../../work');

@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/mobile-test';
 import {mockAndroid} from './helpers/mobile-native-mock';
 test('Mobile recovery coalesces typing, flushes before save and never recreates discarded drafts',async({page})=>{
   await mockAndroid(page,{files:{'note.md':{content:'original'}}});await page.goto('/mobile.html');await expect(page.locator('.mobile-mode-bar')).toBeVisible({timeout:30000});

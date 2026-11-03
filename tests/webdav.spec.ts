@@ -34,6 +34,17 @@ test('WebDAV panel synchronizes saved edits, refreshes open documents, resolves 
   const errors: string[] = [];
   try {
     const page = await app.firstWindow(), root = path.join(data, '示例知识库');
+    await app.evaluate(({ dialog }) => {
+      const responses = [2, 0, 2, 0];
+      Reflect.set(globalThis, '__moyuSyncPreflightCount', 0);
+      dialog.showMessageBox = async (_window, options) => {
+        if (options.title === '同步前处理修改') {
+          Reflect.set(globalThis, '__moyuSyncPreflightCount', Number(Reflect.get(globalThis, '__moyuSyncPreflightCount')) + 1);
+          return { response: responses.shift() ?? 0 };
+        }
+        return { response: 0 };
+      };
+    });
     page.on('pageerror', e => errors.push(e.message));
     await app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false)
@@ -72,12 +83,14 @@ test('WebDAV panel synchronizes saved edits, refreshes open documents, resolves 
       }
     };
     await synchronize();
-    await expect(page.locator('.feature-message')).toContainText('已同步');
-    expect(server.files.get('/Moyu/同步测试.md').toString()).not.toContain('未保存编辑');
+    expect(server.files.has('/Moyu/同步测试.md')).toBe(false);
     expect(await fs.readFile(path.join(root, '同步测试.md'), 'utf8')).not.toContain('未保存编辑');
+    await synchronize();
+    await expect(page.locator('.feature-message')).toContainText('已同步');
+    expect(server.files.get('/Moyu/同步测试.md').toString()).toContain('未保存编辑');
+    expect(await fs.readFile(path.join(root, '同步测试.md'), 'utf8')).toContain('未保存编辑');
+    expect(await app.evaluate(() => Reflect.get(globalThis, '__moyuSyncPreflightCount'))).toBe(2);
     await expect(page.locator('.ProseMirror')).toContainText('未保存编辑');
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('moyu:command', 'save'));
-    await expect.poll(() => fs.readFile(path.join(root, '同步测试.md'), 'utf8')).toContain('未保存编辑');
     await synchronize();
     expect(server.files.get('/Moyu/同步测试.md').toString()).toContain('未保存编辑');
     server.files.set('/Moyu/同步测试.md', Buffer.from('# 同步测试\n\n远端正文'));
@@ -110,9 +123,19 @@ test('WebDAV panel synchronizes saved edits, refreshes open documents, resolves 
     await page.getByRole('button', { name: '关闭对话框', exact: true }).click();
     await expect(page.locator('.sync-conflict')).toContainText('同步测试.md 冲突');
     await page.locator('.sync-conflict summary').click();
+    await page.locator('.ProseMirror p').last().click();
+    await page.keyboard.press('End');
+    await page.keyboard.insertText('冲突处理前未保存');
+    await page.getByRole('button', { name: '保留远端', exact: true }).click();
+    await expect(page.locator('.sync-conflict')).toContainText('同步测试.md 冲突');
+    expect(await app.evaluate(() => Reflect.get(globalThis, '__moyuSyncPreflightCount'))).toBe(3);
+    await page.getByRole('button', { name: '保留远端', exact: true }).click();
+    await expect(page.locator('.feature-message')).toContainText('冲突内容已更新');
+    await expect(page.locator('.sync-conflict')).toContainText('冲突处理前未保存');
     await page.getByRole('button', { name: '保留远端', exact: true }).click();
     await expect(page.locator('.sync-conflict')).toHaveCount(0);
     await expect(page.locator('.ProseMirror')).toContainText('冲突远端');
+    expect(await app.evaluate(() => Reflect.get(globalThis, '__moyuSyncPreflightCount'))).toBe(4);
     const copies = await fs.readdir(path.join(root, '.data', 'conflicts'));
     expect(copies).toHaveLength(2);
     expect(copies[0]).toContain('同步测试-远端冲突');

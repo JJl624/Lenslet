@@ -1,4 +1,5 @@
-import {test,expect,_electron as electron,type Page} from './helpers/test';
+import {test,expect,type Page} from './helpers/mobile-test';
+import {_electron as electron} from './helpers/test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {createRequire} from 'node:module';
@@ -57,6 +58,7 @@ test('Every complex guide renders equivalently on phone and desktop and survives
   test.setTimeout(300000);const corpus=await guideCorpus(),data=await temporary('mobile-render-corpus-'),env={...process.env,MOYU_USER_DATA:data,MOYU_TEST:'1',MOYU_DEMO:'1',MOYU_TEST_SKIP_BUNDLED:'1',MOYU_TEST_OFFSCREEN:'1'};delete env.ELECTRON_RUN_AS_NODE;
   await fs.cp(guideRoot,path.join(data,'示例知识库'),{recursive:true,filter:source=>path.basename(source)!=='.data'});
   const app=await electron.launch({args:[project],env}),desktop=await app.firstWindow(),errors:string[]=[];desktop.on('pageerror',error=>errors.push(error.message));page.on('pageerror',error=>errors.push(error.message));
+  desktop.on('console',message=>{if(message.type()==='error'&&message.text().includes('Markdown 阅读渲染失败'))errors.push(message.text());});
   try{
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));await expect(desktop.locator('.ProseMirror')).toBeVisible({timeout:60000});await desktop.getByRole('button',{name:'阅读',exact:true}).click();
     await mockAndroid(page,corpus);await page.goto('/mobile.html');await expect(page.locator('.reading-view')).toBeVisible({timeout:30000});
@@ -64,10 +66,17 @@ test('Every complex guide renders equivalently on phone and desktop and survives
     for(const name of documents){
       await test.step(name,async()=>{
         if(await page.getByRole('button',{name:'返回笔记',exact:true}).count())await page.getByRole('button',{name:'返回笔记',exact:true}).click();
-        if(name.startsWith('代码示例/')){const folder=page.locator('.mobile-file-tree [data-path="代码示例"]');if(await folder.getAttribute('aria-expanded')!=='true')await folder.locator('.mobile-file-open').click();}
+        const parts=name.split('/');
+        for(let depth=1;depth<parts.length;depth++){
+          const directory=parts.slice(0,depth).join('/');
+          const phoneFolder=page.locator('.mobile-file-tree [data-path='+JSON.stringify(directory)+']');
+          if(await phoneFolder.getAttribute('aria-expanded')!=='true')await phoneFolder.locator('.mobile-file-open').click();
+          const desktopFolder=desktop.locator('.tree-item[title='+JSON.stringify(directory)+']');
+          if(!await desktopFolder.locator('.tree-chevron .lucide-chevron-down').count())await desktopFolder.click();
+        }
         await page.locator('.mobile-file-tree [data-path="'+name+'"] .mobile-file-open').click();
-        if(name.startsWith('代码示例/')&&!await desktop.locator('.tree-item[title="'+name+'"]').count())await desktop.locator('.tree-item[title="代码示例"]').click();
-        await desktop.locator('.tree-item[title="'+name+'"]').dblclick();const expected=await rendered(desktop),actual=await rendered(page);expect(actual,name).toEqual(expected);
+        await desktop.locator('.tree-item[title="'+name+'"]').dblclick();const actual=await rendered(page);
+        await expect.poll(()=>rendered(desktop),{message:name,timeout:90000}).toEqual(actual);
         await page.getByRole('tab',{name:'编辑',exact:true}).click();await expect(page.locator('.ProseMirror')).toBeVisible();await page.getByRole('tab',{name:'源码',exact:true}).click();await expect(page.locator('.source-editor')).toBeVisible();await expect(page.getByRole('button',{name:'保存文档',exact:true})).toHaveCount(0);
         expect(await page.evaluate(name=>(window as any).__mobileState.files[name].content,name),name).toBe(corpus.files[name].content);
         await desktop.getByRole('button',{name:'预览编辑',exact:true}).click();await expect(desktop.locator('.ProseMirror')).toBeVisible();await desktop.getByRole('button',{name:'源码',exact:true}).click();await expect(desktop.locator('.source-editor')).toBeVisible();expect(await fs.readFile(path.join(data,'示例知识库',name),'utf8')).toBe(corpus.files[name].content);await desktop.getByRole('button',{name:'阅读',exact:true}).click();

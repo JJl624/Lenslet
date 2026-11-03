@@ -1,0 +1,5 @@
+<resources>
+    <style name="AppTheme" parent="PlatformAppTheme">
+        <item name="android:windowIsFrameRatePowerSavingsBalanced">false</item>
+    </style>
+</resources>

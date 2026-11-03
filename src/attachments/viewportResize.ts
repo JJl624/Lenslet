@@ -1,23 +1,23 @@
 import {type AttachmentViewState,reportAttachmentViewError} from './viewState';
+import {bindHeightResize} from '../heightResizeGesture';
 
 /** A height-only resize control. Browser resize grips can retain a pixel width
  * and cannot distinguish user changes from responsive layout restoration. */
 export function resizeAttachmentViewport(viewport:HTMLElement,label:string,signal:AbortSignal,state?:AttachmentViewState,defaultHeight:()=>number=()=>400){
   const handle=document.createElement('div');handle.className='attachment-viewport-resize';handle.dataset.attachmentControl='true';handle.tabIndex=0;
-  handle.setAttribute('role','separator');handle.setAttribute('aria-orientation','horizontal');handle.setAttribute('aria-label',label);handle.title='拖动调整高度，双击恢复默认';
-  handle.setAttribute('aria-valuemin','120');handle.setAttribute('aria-valuemax','4000');
-  let drag:{id:number;y:number;height:number;style:string}|undefined;
-  const bounded=(height:number)=>Math.max(120,Math.min(4000,Math.round(height)));
-  const show=(height:number)=>{const value=bounded(height)+'px';if(viewport.style.height!==value)viewport.style.height=value;handle.setAttribute('aria-valuenow',String(bounded(height)));};
-  const restore=()=>{if(drag)return;const saved=state?.get().height;if(saved!==undefined)show(saved||defaultHeight());};restore();
-  const unsubscribe=state?.subscribe(restore);
-  handle.addEventListener('pointerdown',event=>{if(event.button!==0)return;event.preventDefault();event.stopPropagation();drag={id:event.pointerId,y:event.clientY,height:viewport.getBoundingClientRect().height,style:viewport.style.height};handle.setPointerCapture(event.pointerId);handle.classList.add('resizing');},{signal});
-  handle.addEventListener('pointermove',event=>{if(drag?.id===event.pointerId){event.preventDefault();show(drag.height+event.clientY-drag.y);}},{signal});
-  const end=(event:PointerEvent)=>{if(drag?.id!==event.pointerId)return;if(event.type==='pointercancel')viewport.style.height=drag.style;else state?.update({height:parseFloat(viewport.style.height)});drag=undefined;handle.classList.remove('resizing');};
-  handle.addEventListener('pointerup',end,{signal});handle.addEventListener('pointercancel',end,{signal});
-  handle.addEventListener('dblclick',event=>{event.preventDefault();show(defaultHeight());state?.update({height:0});},{signal});
-  handle.addEventListener('keydown',event=>{if(!['ArrowUp','ArrowDown','Home'].includes(event.key))return;event.preventDefault();show(event.key==='Home'?defaultHeight():viewport.getBoundingClientRect().height+(event.key==='ArrowUp'?-24:24));state?.update({height:event.key==='Home'?0:parseFloat(viewport.style.height)});},{signal});
+  handle.setAttribute('aria-label',label);
   viewport.after(handle);
-  signal.addEventListener('abort',()=>{unsubscribe?.();void state?.flush().catch(reportAttachmentViewError);},{once:true});
+  let resizing=false;
+  const show=(height:number|null)=>{const value=height===null?defaultHeight():Math.max(120,Math.min(4000,Math.round(height)));if(viewport.style.height!==value+'px')viewport.style.height=value+'px';handle.setAttribute('aria-valuenow',String(Math.round(value)));};
+  const restore=()=>{if(resizing)return;const saved=state?.get().height;if(saved!==undefined)show(saved||null);};
+  restore();
+  const unsubscribe=state?.subscribe(restore);
+  const dispose=bindHeightResize(handle,{
+    mobile:!!viewport.closest('.mobile-app'),minHeight:120,maxHeight:4000,defaultHeight,measure:()=>viewport.getBoundingClientRect().height,
+    value:()=>{const saved=state?.get().height;return saved?Math.max(120,Math.min(4000,Math.round(saved))):null;},
+    preview:show,commit:height=>state?.update({height:height??0}),active:value=>{resizing=value;},
+  });
+  const cleanup=()=>{dispose();unsubscribe?.();void state?.flush().catch(reportAttachmentViewError);};
+  if(signal.aborted)cleanup();else signal.addEventListener('abort',cleanup,{once:true});
   return handle;
 }

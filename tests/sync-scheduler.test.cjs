@@ -43,3 +43,12 @@ test('Desktop watcher events caused by a download never trigger another network 
   const sync={job:{phase:'idle'},hasLocalChanges:async paths=>{checked.push([...paths]);return changed;},sync:async()=>{calls++;return{};}};
   const scheduler=new SyncScheduler(sync);t.after(()=>scheduler.close());scheduler.configure({url:'https://example.test',sync:{afterSave:true}});scheduler.changed('downloaded.md');t.mock.timers.tick(2000);await turn();assert.equal(calls,0);assert.deepEqual(checked,[['downloaded.md']]);changed=true;scheduler.changed('edited.md');t.mock.timers.tick(2000);await turn();assert.equal(calls,1);
 });
+
+test('Desktop automatic sync pauses while documents are dirty and resumes after they are resolved',async t=>{
+  t.mock.timers.enable({apis:['setTimeout','Date']});let calls=0;
+  const sync={job:{phase:'idle'},sync:async()=>{calls++;return{};}};
+  const scheduler=new SyncScheduler(sync);t.after(()=>scheduler.close());scheduler.configure({url:'https://example.test',sync:{onOpen:true,afterSave:true}},true);
+  scheduler.setBlocked(true);t.mock.timers.tick(1500);await turn();assert.equal(calls,0);
+  scheduler.changed('note.md');t.mock.timers.tick(2000);await turn();assert.equal(calls,0);
+  scheduler.setBlocked(false);t.mock.timers.tick(2000);await turn();assert.equal(calls,1);
+});

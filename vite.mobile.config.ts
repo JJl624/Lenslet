@@ -4,7 +4,7 @@ export default mergeConfig(desktop, defineConfig({
   build: {
     copyPublicDir: false,
     outDir: 'android/app/src/main/assets/web',
-    target: 'chrome100',
+    target: ['chrome100', 'firefox115'],
     rollupOptions: { input: 'mobile.html' },
   },
 }));

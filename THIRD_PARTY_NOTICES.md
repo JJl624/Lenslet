@@ -172,6 +172,13 @@ C# formatting uses @dprint/roslyn 0.23.1 (MIT). Java formatting uses prettier-pl
 Ruby uses @ruby/4.0-wasm-wasi and @ruby/wasm-wasi 2.10.1. Ruby is licensed under the Ruby or BSD 2-Clause license; ruby.wasm is MIT licensed. Original Ruby sources: https://github.com/ruby/ruby; Ruby.wasm sources: https://github.com/ruby/ruby.wasm. Bash uses @everruns/bashkit-wasm 0.18.2 under MIT (https://github.com/everruns/bashkit). Engines install on demand; license texts in resources/licenses are copied into installed environments. npm package versions retain upstream sources and notices.
 The terminal uses @xterm/xterm 6.0.0, @xterm/addon-fit 0.11.0 and node-pty 1.1.0 under MIT; Windows ConPTY native components and upstream notices are included in resources/terminal/node-pty.
 
+## Android GeckoView
+
+GeckoView 158.0.20261021001945 is distributed under Mozilla Public License 2.0.
+The unmodified corresponding source is available at https://hg.mozilla.org/releases/mozilla-release/rev/e4ce606692cd81e6898547e2edd7c552fefcbb04.
+The license is in resources/licenses/Mozilla-MPL-2.0.txt and bundled with the GeckoView APK. GeckoView retains its upstream third-party notices. The Android build uses nativeMessaging through a bundled WebExtension; no upstream Gecko sources are modified.
+
+
 Windows PDF viewing and document previews use EmbedPDF 2.15.1 (MIT) and PDFium/Wasm, replacing PDF.js. Music notation uses alphaTab 1.8.4 (MPL-2.0) with its bundled Bravura font. The AudioWorklet lifecycle fix is applied only to the build copy; the readable modified alphaTab.core.mjs and the MPL-2.0 adaptation source moyu-audio-adapter.mjs are shipped in vendor/alphatab/. Upstream sources in node_modules remain untouched. Workers, Wasm and fallback fonts are shipped offline. Source: https://github.com/embedpdf/embed-pdf-viewer and https://github.com/CoderLine/alphaTab . Full bundled dependency notices are in resources/licenses/DIAGRAM-DEPENDENCIES.txt; alphaTab source availability and integrated licenses are preserved in resources/licenses/alphaTab-NOTICES.txt. Integration and upgrade rules: docs/attachment-previews.md.
 
 Score playback uses the bundled Sonivox soundfont, Copyright (c) 2004–2006 Sonic Network Inc., Apache License 2.0. Its unmodified LICENSE and attribution README are distributed with sonivox.sf3 in vendor/alphatab/soundfont/. Playback loads these local assets only when requested.

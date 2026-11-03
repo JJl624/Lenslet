@@ -1,5 +1,5 @@
 import { isComposingKey } from '../keyboardComposition';
-import {bindCodeResize} from '../codeResizeGesture';
+import {bindHeightResize} from '../heightResizeGesture';
 import { codeBlockSchema } from "@milkdown/kit/preset/commonmark";
 import { Plugin } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
@@ -128,9 +128,7 @@ export const resizeCodeBlocks = $prose(() =>
           const handle = document.createElement("div");
           handle.className = "code-resize";
           handle.contentEditable = "false";
-          handle.setAttribute("role", "separator");
           handle.setAttribute("aria-label", "拖动调整代码块高度");
-          handle.title = "拖动调整高度；双击恢复不限高度";
           heightTarget.after(handle);
           const position = () => {
             let found: number | undefined;
@@ -192,9 +190,8 @@ export const resizeCodeBlocks = $prose(() =>
           field.addEventListener("keydown", keys);
           field.readOnly = !view.editable;
           const mobile=!!view.dom.closest('.mobile-app');
-          if(mobile)handle.title='长按后拖动调整高度；双击恢复默认高度';
-          const disposeResize=bindCodeResize(handle,{
-            mobile,enabled:()=>view.editable,
+          const disposeResize=bindHeightResize(handle,{
+            mobile,enabled:()=>view.editable,minHeight:60,maxHeight:4000,
             measure:()=>heightTarget.getBoundingClientRect().height,
             value:()=>{const at=position();return at===undefined?null:heightFromMeta(view.state.doc.nodeAt(at)?.attrs.meta||'');},
             preview:height=>{heightTarget.style.height=height===null?'':height+'px';},

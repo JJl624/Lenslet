@@ -2,7 +2,7 @@ import {chromium,expect} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-const sdk=process.env.ANDROID_HOME,serial=process.env.ANDROID_SERIAL||'emulator-5580',app='app.moyu.notes.debug';
+const sdk=process.env.ANDROID_HOME,serial=process.env.ANDROID_SERIAL||'emulator-5580',app='com.lrj.moyu.webview.debug';
 if(!sdk||!serial.startsWith('emulator-'))throw Error('Use an Android test emulator and set ANDROID_HOME.');
 const adb=path.join(sdk,'platform-tools',process.platform==='win32'?'adb.exe':'adb');
 const shell=(...args)=>execFileSync(adb,['-s',serial,...args],{encoding:'utf8',windowsHide:true}).trim();

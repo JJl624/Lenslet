@@ -1,7 +1,9 @@
-import {test,expect,type Page} from '@playwright/test';
+import {test,expect,type Page} from './helpers/mobile-test';
 import path from 'node:path';
 import {mockAndroid} from './helpers/mobile-native-mock';
 const work=path.resolve(import.meta.dirname,'../../../work');
+// Chromium returns fractional CSS pixels even for integer minimum dimensions.
+const layoutEpsilon=0.1;
 const longText=Array.from({length:65},(_,index)=>`第 ${index} 段：用于检查长文档的阅读和编辑位置。`).join('\n\n');
 const content='# 复杂文档\n\n'+longText+'\n\n| 名称 | 用途 | 输入 | 输出 | 备注 |\n| --- | --- | --- | --- | --- |\n| 快速排序 | 排序 | 数组 | 有序数组 | 原地操作 |\n\n```javascript\nconsole.log("复制这段代码");\n```\n\n> [+] 折叠标题\n> 折叠内容\n\n![示意图](a.assets/attachments/a.svg)\n';
 async function start(page:Page){
@@ -23,7 +25,7 @@ test('Compact fixed-width view controls, focus reading and pinned formatting act
   await page.getByRole('tab',{name:'源码',exact:true}).click();
   for(const name of ['全部格式','放大字号','缩小字号']){const box=(await page.getByRole('button',{name,exact:true}).boundingBox())!;expect(box.x+box.width).toBeLessThanOrEqual(360);expect(box.y+box.height).toBeLessThanOrEqual(430);}
   await page.getByRole('button',{name:'全部格式',exact:true}).click();await expect(page.getByRole('button',{name:'关闭全部格式'})).toBeInViewport();
-  const panel=page.getByRole('dialog',{name:'全部格式'});expect((await panel.boundingBox())!.height).toBeLessThanOrEqual(406);
+  const panel=page.getByRole('dialog',{name:'全部格式'});expect((await panel.boundingBox())!.height).toBeLessThanOrEqual(406+layoutEpsilon);
   await page.screenshot({path:path.join(work,'android-compact-formatting.png')});
 });
 
@@ -45,13 +47,34 @@ test('Wide tables scroll independently; code copies exactly; images support full
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:150,y,id:1},{x:230,y,id:2}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:130,y,id:1},{x:250,y,id:2}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await expect(viewer.locator('output')).toHaveText('150%');
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:260,y}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:160,y}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});expect(await viewer.locator('.mobile-media-pan').evaluate(element=>element.scrollLeft)).toBeGreaterThan(0);await cdp.detach();
   await page.evaluate(()=>window.dispatchEvent(new Event('moyu-mobile-back')));await expect(viewer).toHaveCount(0);await expect(page.getByRole('tab',{name:'阅读',exact:true})).toBeVisible();
-  const summary=page.locator('summary');await summary.scrollIntoViewIfNeeded();expect((await summary.boundingBox())!.height).toBeGreaterThanOrEqual(44);await summary.click();await expect(page.getByText('折叠内容',{exact:true})).toBeHidden();
+  const summary=page.locator('summary');await summary.scrollIntoViewIfNeeded();expect((await summary.boundingBox())!.height).toBeGreaterThanOrEqual(44-layoutEpsilon);await summary.click();await expect(page.getByText('折叠内容',{exact:true})).toBeHidden();
 });
 
 test('Returning to the file list preserves expansion and scroll; reopening an open document restores reading position',async({page})=>{
   await home(page);await page.evaluate(()=>{for(let index=0;index<35;index++)(window as any).__mobileState.files['0-'+String(index).padStart(2,'0')+'.md']={content:'文档'};window.dispatchEvent(new Event('moyu-mobile-resume'));});await expect(page.locator('[data-path="0-34.md"]')).toHaveCount(1);await page.locator('[data-path="目标"] .mobile-file-open').click();await page.locator('[data-path="a.md"] .mobile-file-open').scrollIntoViewIfNeeded();const listPosition=await page.locator('.mobile-home-content').evaluate(element=>element.scrollTop);expect(listPosition).toBeGreaterThan(0);await page.locator('[data-path="a.md"] .mobile-file-open').click();await expect(page.locator('.reading-view')).toContainText('第 64 段');
-  await page.locator('.mobile-document').evaluate(element=>element.scrollTop=900);await expect.poll(()=>page.locator('.mobile-document').evaluate(element=>element.scrollTop)).toBe(900);
-  await page.getByRole('button',{name:'返回笔记',exact:true}).click();await expect.poll(()=>page.locator('.mobile-home-content').evaluate(element=>element.scrollTop)).toBe(listPosition);await expect(page.locator('[data-path="目标"]')).toHaveAttribute('aria-expanded','true');await expect(page.locator('[data-path="目标/已有.md"]')).toBeVisible();await page.locator('[data-path="a.md"] .mobile-file-open').click();await expect.poll(()=>page.locator('.mobile-document').evaluate(element=>element.scrollTop)).toBe(900);
+  const readingPosition=await page.locator('.mobile-document').evaluate(async element=>{
+    await document.fonts.ready;element.scrollTop=900;
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    return element.scrollTop;
+  });expect(readingPosition).toBeGreaterThan(800);
+  const visibleParagraph=()=>page.locator('.mobile-document').evaluate(element=>{
+    const top=element.getBoundingClientRect().top+24;
+    return [...element.querySelectorAll<HTMLElement>('.reading-view p[data-source-from]')]
+      .find(paragraph=>paragraph.getBoundingClientRect().bottom>top)?.dataset.sourceFrom;
+  });
+  const paragraph=await visibleParagraph();expect(typeof paragraph).toBe('string');
+  const lineHeight=await page.locator('.reading-view').evaluate(element=>parseFloat(getComputedStyle(element).lineHeight));
+  await page.getByRole('button',{name:'返回笔记',exact:true}).click();await expect.poll(()=>page.locator('.mobile-home-content').evaluate(element=>element.scrollTop)).toBe(listPosition);await expect(page.locator('[data-path="目标"]')).toHaveAttribute('aria-expanded','true');await expect(page.locator('[data-path="目标/已有.md"]')).toBeVisible();await page.locator('[data-path="a.md"] .mobile-file-open').click();
+  await expect.poll(visibleParagraph).toBe(paragraph);
+  // Source anchors align to a glyph row rather than an arbitrary pixel. Keep
+  // the same paragraph within half a line, then reject cumulative drift.
+  await expect.poll(async()=>Math.abs(await page.locator('.mobile-document').evaluate(element=>element.scrollTop)-readingPosition)).toBeLessThan(lineHeight/2);
+  const restoredPosition=await page.locator('.mobile-document').evaluate(element=>element.scrollTop);
+  for(let repeat=0;repeat<2;repeat++){
+    await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.locator('[data-path="a.md"] .mobile-file-open').click();
+    await expect.poll(visibleParagraph).toBe(paragraph);
+    await expect.poll(()=>page.locator('.mobile-document').evaluate(element=>element.scrollTop)).toBeCloseTo(restoredPosition,0);
+  }
 });
 
 test('Long press selects without opening, scrolling cancels long press, and batch move keeps attachment references',async({page})=>{
@@ -74,6 +97,6 @@ test('Selecting a folder and its child deletes only once and leaves the other fi
   await expect(page.getByRole('toolbar',{name:'文件批量操作'})).toHaveCount(0);const state=await page.evaluate(()=>(window as any).__mobileState);expect(state.trash).toHaveLength(1);expect(state.files['目标/已有.md']).toBeUndefined();expect(state.files['a.md']).toBeTruthy();
 });
 
-test('Sync details expose the last failure and lead to configuration without discarding the file list',async({page})=>{
-  await home(page);await page.getByRole('button',{name:'同步详情',exact:true}).click();await expect(page.getByRole('dialog',{name:'同步详情'})).toContainText('尚未同步');await page.getByRole('button',{name:'同步设置与冲突处理',exact:true}).click();await expect(page.getByLabel('WebDAV 地址',{exact:true})).toBeVisible();await page.getByRole('button',{name:'返回设置',exact:true}).click();await expect(page.getByRole('tree',{name:'文档目录'})).toBeVisible();
+test('Sync details expose the last sync status and lead to configuration without discarding the file list',async({page})=>{
+  await home(page);await page.getByRole('button',{name:'同步详情',exact:true}).click();await expect(page.getByRole('dialog',{name:'同步详情'})).toContainText('尚未同步');await page.getByRole('button',{name:'同步设置',exact:true}).click();await expect(page.getByLabel('WebDAV 地址',{exact:true})).toBeVisible();await page.getByRole('button',{name:'返回设置',exact:true}).click();await expect(page.getByRole('tree',{name:'文档目录'})).toBeVisible();
 });

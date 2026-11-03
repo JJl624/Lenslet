@@ -1,4 +1,5 @@
 import {settingsStore} from '../settingsStore';
+import {mobileFeature} from './native';
 import type {SyncPolicy} from '../../shared/sync-policy.mjs';
 export interface SyncConfig {url:string;directory?:string;username:string;password:string;sync?:Partial<SyncPolicy>}
 export type Baseline=Record<string,{localHash:string;remoteEtag:string}>;
@@ -16,7 +17,12 @@ export function syncURL(config:SyncConfig){
 }
 export async function syncKey(root:string,config:SyncConfig){return 'moyu-mobile-sync-'+await hashBytes(new TextEncoder().encode(root+'\n'+syncURL(config).href+'\n'+config.username));}
 export async function syncRootKey(root:string){return 'moyu-mobile-sync-scope-'+await hashBytes(new TextEncoder().encode(root));}
-export function readBaseline(key:string):Baseline{return Object.assign(Object.create(null),JSON.parse(settingsStore.getItem(key)||'{}'));}
+const baselines=new Map<string,Baseline>();
+export function readBaseline(key:string):Baseline{return Object.assign(Object.create(null),baselines.get(key)||JSON.parse(settingsStore.getItem(key)||'{}'));}
+export async function loadSyncBaseline(root:string,key:string):Promise<Baseline>{
+  const value=await mobileFeature<Baseline>('mobile.sync-baseline-read',{root,key,initial:JSON.parse(settingsStore.getItem(key)||'{}')});
+  const baseline=Object.assign(Object.create(null),value);baselines.set(key,baseline);settingsStore.acceptItem(key,'{}');return baseline;
+}
 export function readSummary(key:string):SyncSummary{return {...emptySummary(),...JSON.parse(settingsStore.getItem(key+'-summary')||'{}')};}
 export function notifySync(){window.dispatchEvent(new Event('moyu-mobile-sync-changed'));}
 export interface SyncOperation {id:string;root:string;kind:'sync'|'list'|'test';stage:string;path:string;full?:boolean;cancel():void}

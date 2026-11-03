@@ -1,5 +1,5 @@
-import {selectMobile} from './helpers/mobile-controls.mjs';
-import {test,expect} from '@playwright/test';
+import {openMobileSettings,selectMobile} from './helpers/mobile-controls.mjs';
+import {test,expect} from './helpers/mobile-test';
 import path from 'node:path';
 import {mockAndroid} from './helpers/mobile-native-mock';
 import {mobileDavFixture} from './helpers/mobile-dav-fixture';
@@ -25,13 +25,13 @@ test('All formats include extended syntax, headings and lists; defaults keep the
 });
 
 test('UI and document sizes adjust independently down to 10 and survive restart',async({page})=>{
-  await start(page);await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();
+  await start(page);await page.getByRole('button',{name:'返回笔记',exact:true}).click();await openMobileSettings(page);
   await page.getByLabel('界面字号',{exact:true}).focus();await page.keyboard.press('Home');await expect(page.getByLabel('界面字号',{exact:true})).toHaveValue('10');await expect(page.getByLabel('正文字号',{exact:true})).toHaveValue('17');
-  await page.getByRole('button',{name:'笔记',exact:true}).click();await page.locator('[data-path="开始使用.md"] .mobile-file-open').click();expect(await page.locator('.reading-view').evaluate(element=>getComputedStyle(element).fontSize)).toBe('17px');
-  await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByLabel('正文字号',{exact:true}).focus();await page.keyboard.press('Home');await page.getByLabel('界面字号',{exact:true}).focus();await page.keyboard.press('End');
-  await page.getByRole('button',{name:'笔记',exact:true}).click();await page.locator('[data-path="开始使用.md"] .mobile-file-open').click();expect(await page.locator('.reading-view').evaluate(element=>getComputedStyle(element).fontSize)).toBe('10px');expect(parseFloat(await page.locator('.mobile-document-title strong').evaluate(element=>getComputedStyle(element).fontSize))).toBeGreaterThan(24);
-  await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();await expect.poll(()=>page.evaluate(()=>(window as any).__mobileState.settings['moyu-mobile-ui-size'])).toBe('24');await page.reload();await expect(page.getByRole('tab',{name:'阅读',exact:true})).toBeVisible();expect(await page.locator('.reading-view').evaluate(element=>getComputedStyle(element).fontSize)).toBe('10px');
-  await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();await expect(page.getByLabel('界面字号',{exact:true})).toHaveValue('24');await expect(page.getByLabel('正文字号',{exact:true})).toHaveValue('10');await page.setViewportSize({width:360,height:740});expect(await page.locator('.mobile-app').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+  await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.locator('[data-path="开始使用.md"] .mobile-file-open').click();expect(await page.locator('.reading-view').evaluate(element=>getComputedStyle(element).fontSize)).toBe('17px');
+  await page.getByRole('button',{name:'返回笔记',exact:true}).click();await openMobileSettings(page);await page.getByLabel('正文字号',{exact:true}).focus();await page.keyboard.press('Home');await page.getByLabel('界面字号',{exact:true}).focus();await page.keyboard.press('End');
+  await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.locator('[data-path="开始使用.md"] .mobile-file-open').click();expect(await page.locator('.reading-view').evaluate(element=>getComputedStyle(element).fontSize)).toBe('10px');expect(parseFloat(await page.locator('.mobile-document-title strong').evaluate(element=>getComputedStyle(element).fontSize))).toBeGreaterThan(24);
+  await page.getByRole('button',{name:'返回笔记',exact:true}).click();await openMobileSettings(page);await expect.poll(()=>page.evaluate(()=>(window as any).__mobileState.settings['moyu-mobile-ui-size'])).toBe('24');await page.reload();await expect(page.getByRole('tab',{name:'阅读',exact:true})).toBeVisible();expect(await page.locator('.reading-view').evaluate(element=>getComputedStyle(element).fontSize)).toBe('10px');
+  await page.getByRole('button',{name:'返回笔记',exact:true}).click();await openMobileSettings(page);await expect(page.getByLabel('界面字号',{exact:true})).toHaveValue('24');await expect(page.getByLabel('正文字号',{exact:true})).toHaveValue('10');await page.setViewportSize({width:360,height:740});expect(await page.locator('.mobile-app').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
 });
 
 test('Rich editing can turn selected text into a folding quote without escaping its marker',async({page})=>{
@@ -46,12 +46,12 @@ test('System bar surfaces follow home, reading, dark theme and the modal backdro
   await start(page);const bars=()=>page.evaluate(()=>(window as any).__mobileState.systemBars);await expect.poll(async()=>(await bars())?.background).toBe('#ffffff');
   await page.getByRole('button',{name:'返回笔记',exact:true}).click();const home=await page.locator('.mobile-app').evaluate(element=>getComputedStyle(element).getPropertyValue('--sidebar').trim());await expect.poll(async()=>(await bars()).background).toBe(home);
   await page.getByRole('button',{name:'新建',exact:true}).click();await expect.poll(async()=>(await bars()).background).not.toBe(home);await page.getByRole('button',{name:'关闭新建',exact:true}).click();
-  await page.getByRole('button',{name:'设置',exact:true}).click();await selectMobile(page,'外观','dark');await expect.poll(async()=>(await bars()).theme).toBe('dark');expect((await bars()).background).not.toBe('#ffffff');await page.screenshot({path:path.join(work,'android-theme-dark-settings.png')});
+  await openMobileSettings(page);await selectMobile(page,'外观','dark');await expect.poll(async()=>(await bars()).theme).toBe('dark');expect((await bars()).background).not.toBe('#ffffff');await page.screenshot({path:path.join(work,'android-theme-dark-settings.png')});
 });
 
 test('Home sync transfers immediately, stays in the file list, includes code data, and can be cancelled',async({page})=>{
   const dav=await davServer();try{
-    await mobileDavFixture(page,dav,{initial:{files:{'a.md':{content:'# 文档'},'a.assets/attachments/image.png':{content:'image'},'a.assets/code-data/0001/input.txt':{content:'data'}}}});await page.getByRole('button',{name:'返回设置',exact:true}).click();await page.getByRole('button',{name:'笔记',exact:true}).click();await page.getByRole('button',{name:'立即同步',exact:true}).click();
+    await mobileDavFixture(page,dav,{initial:{files:{'a.md':{content:'# 文档'},'a.assets/attachments/image.png':{content:'image'},'a.assets/code-data/0001/input.txt':{content:'data'}}}});await page.getByRole('button',{name:'返回设置',exact:true}).click();await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'立即同步',exact:true}).click();
     await expect(page.getByRole('status').filter({hasText:'已上传 3 个'})).toBeVisible();await expect(page.getByRole('button',{name:'选择知识库',exact:true})).toBeVisible();expect(dav.files.has('/a.assets/code-data/0001/input.txt')).toBe(true);expect(dav.files.has('/a.assets/attachments/image.png')).toBe(true);
     dav.delay({method:'PROPFIND',path:'/',ms:10000});await page.getByRole('button',{name:'立即同步',exact:true}).click();await expect(page.getByRole('button',{name:'中断同步',exact:true})).toBeVisible();await page.getByRole('button',{name:'中断同步',exact:true}).click();await expect(page.getByRole('alert')).toContainText('已取消同步');await expect(page.getByRole('button',{name:'立即同步',exact:true})).toBeEnabled();
   }finally{await dav.close();}

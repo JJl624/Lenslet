@@ -23,10 +23,11 @@ function createFilesOperations(services) {
     'attachment.rename': (input) => services.documentFiles.rename(input),
     'document.confirm-close': async (input) => {
       const names = (input.paths || []).map(p => path.basename(p)).slice(0, 8);
+      const sync = input.reason === 'sync';
       const result = await services.dialog.showMessageBox(services.window, {
         type: 'question',
-        title: '文档未保存',
-        message: names.length === 1 ? '保存 ' + names[0] + ' 的修改？' : '保存未保存的文档？',
+        title: sync ? '同步前处理修改' : '文档未保存',
+        message: sync ? '同步前先处理未保存修改。' : names.length === 1 ? '保存 ' + names[0] + ' 的修改？' : '保存未保存的文档？',
         detail: names.join('\n'),
         buttons: ['保存', '放弃修改', '取消'],
         defaultId: 0,

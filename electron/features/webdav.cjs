@@ -26,6 +26,11 @@ function createWebdavOperations(services) {
     'webdav.preview': () => services.sync.preview(),
     'webdav.refresh-tree': () => services.sync.refreshTree(),
     'webdav.cancel': () => services.sync.cancel(),
+    'webdav.auto-state': (input) => {
+      if (input.root !== services.vault?.root) return false;
+      services.syncScheduler?.setBlocked(input.blocked === true);
+      return true;
+    },
     'webdav.sync': async (input) => {
       const current = services.vault, a = services.attachments, r = services.references;
       const result = await services.sync.sync(input);

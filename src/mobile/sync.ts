@@ -6,7 +6,7 @@ import {syncDecision} from '../../shared/sync-decision.mjs';
 import {excludedBy,policy,syncEligible} from '../../shared/sync-policy.mjs';
 import {sameToken,validator} from '../../shared/sync-validator.mjs';
 import {requestBudget} from '../../shared/sync-requests.mjs';
-import {beginSyncOperation,endSyncOperation,progressSyncOperation,hashBytes,readBaseline,readSummary,syncKey,syncRootKey,syncURL,writeSummary,type Baseline,type CloudEntry,type SyncConfig} from './syncState';
+import {beginSyncOperation,endSyncOperation,progressSyncOperation,hashBytes,loadSyncBaseline,readSummary,syncKey,syncRootKey,syncURL,writeSummary,type Baseline,type CloudEntry,type SyncConfig} from './syncState';
 export type {SyncConfig} from './syncState';
 export type Remote=CloudEntry;
 export type SyncConflict={path:string;local:string|null;remote:string|null;etag:string;localHash:string|null;remoteBytes:string|null;truncated?:boolean};
@@ -45,7 +45,11 @@ export class MobileSyncJob {
   constructor(readonly config:SyncConfig,readonly root:string,readonly progress:(value:SyncProgress)=>void,private readonly confirmOverwrite?:ConfirmOverwrite,private readonly confirmScope?:(destination:string,serviceRoot:boolean)=>boolean|Promise<boolean>){
     this.base=syncURL(config);this.budget=requestBudget(this.base.href,config.username);this.settings=policy(config.sync);const publish=this.progress;this.progress=value=>{publish(value);progressSyncOperation(this.id,value);};
   }
-  private async operation<T>(kind:'sync'|'list'|'test',action:()=>Promise<T>,full=false):Promise<T>{beginSyncOperation({id:this.id,root:this.root,kind,full,stage:kind==='sync'?'正在同步':kind==='list'?'读取云端目录':'测试连接',path:'',cancel:()=>this.cancel()});try{return await action();}catch(error){await refreshMobileWrites().catch(()=>{});throw error;}finally{endSyncOperation(this.id);}}
+  private async operation<T>(kind:'sync'|'list'|'test',action:()=>Promise<T>,full=false):Promise<T>{
+    beginSyncOperation({id:this.id,root:this.root,kind,full,stage:kind==='sync'?'正在同步':kind==='list'?'读取云端目录':'测试连接',path:'',cancel:()=>this.cancel()});let failed=false;
+    try{return await action();}catch(error){failed=true;await refreshMobileWrites().catch(()=>{});throw error;}
+    finally{try{if(kind==='sync'&&this.key)await mobileFeature('mobile.sync-baseline-checkpoint',{root:this.root,key:this.key});}catch(error){if(!failed)throw error;}finally{endSyncOperation(this.id);}}
+  }
   run(){return this.operation('sync',()=>this.performRun(),true);}
   resolve(conflict:SyncConflict,choice:'local'|'remote'|'both'){return this.operation('sync',()=>this.performResolve(conflict,choice));}
   review(paths:string[]){return this.operation('list',async()=>{await this.loadBaseline();const entries=new Map(readSummary(this.key).remote.map(item=>[item.path,item])),result:SyncConflict[]=[];for(const path of paths){this.check();const local=await mobileFeature<boolean>('file.exists',{path})?await this.readLocal(path):null;const head=await this.request('HEAD',path);if(head.status!==200&&head.status!==404)throw statusError(head.status);const cloud=head.status===200?await this.download({...entries.get(path),path,etag:head.etag||'',size:-1,modified:''}):null;result.push(this.comparison(path,local,cloud));}return result;});}
@@ -111,12 +115,12 @@ export class MobileSyncJob {
     this.knownDirectories=new Set([...entries.values()].filter(item=>item.type==='folder').map(item=>item.path));
     return [...entries.values()].sort((a,b)=>a.path.localeCompare(b.path,'zh-CN',{numeric:true}));
   }
-  private async loadBaseline(){this.key=await syncKey(this.root,this.config);this.baseline=readBaseline(this.key);}
+  private async loadBaseline(){this.key=await syncKey(this.root,this.config);this.baseline=await loadSyncBaseline(this.root,this.key);}
   private async record(path:string,localHash:string,remoteEtag:string){
     const before=this.baseline[path];if(before?.localHash===localHash&&before.remoteEtag===remoteEtag)return;
-    this.baseline[path]={localHash,remoteEtag};settingsStore.setItem(this.key,JSON.stringify(this.baseline));await settingsStore.flush();
+    const value={localHash,remoteEtag};await mobileFeature('mobile.sync-baseline-record',{root:this.root,key:this.key,path,value});this.baseline[path]=value;
   }
-  private async removeBaseline(path:string){delete this.baseline[path];this.cloud.delete(path);settingsStore.setItem(this.key,JSON.stringify(this.baseline));await settingsStore.flush();}
+  private async removeBaseline(path:string){await mobileFeature('mobile.sync-baseline-record',{root:this.root,key:this.key,path,value:null});delete this.baseline[path];this.cloud.delete(path);}
   private async readLocal(path:string){const result=await mobileFeature<{base64:string;hash?:string;size?:number}>('mobile.read-bytes',{root:this.root,path});if(result.hash&&Number.isSafeInteger(result.size))return{base64:result.base64,hash:result.hash,size:result.size!};const bytes=decode(result.base64);return{base64:result.base64,hash:await hashBytes(bytes),size:bytes.length};}
   private async alternate(path:string,expected:string){
     const response=await this.request('HEAD',path);if(response.status!==200)throw statusError(response.status);
@@ -197,13 +201,16 @@ export class MobileSyncJob {
       for(const path of paths){const before=folded.get(path.toLowerCase());if(before&&before!==path)throw Error('文件名在 Windows 上冲突：'+before+' / '+path);folded.set(path.toLowerCase(),path);}
       const conflicts:SyncConflict[]=[],skipped:{path:string;reason:string}[]=[];let uploaded=0,downloaded=0,completed=0;
       const overwrites:{path:string;local:Awaited<ReturnType<MobileSyncJob['readLocal']>>;remote:Remote|null;remoteHash?:string}[]=[];
+      const candidates=paths.filter(path=>{const file=local.get(path);return file&&syncEligible(path)&&!excluded(path)&&(file.size||0)<=this.settings.maxFileMB*1024*1024&&!remote.get(path)?.excluded;});
+      const hashes=Object.create(null) as Record<string,string>;
+      // Bound bridge messages; all batches and remote operations remain serial.
+      for(let at=0;at<candidates.length;at+=256){this.check();Object.assign(hashes,await mobileFeature<Record<string,string>>('mobile.file-hashes',{root:this.root,job:this.id,paths:candidates.slice(at,at+256)}));}
       for(const path of paths){
         this.check();this.progress({stage:'检查文件变化',completed,total:paths.length,path});
         const file=local.get(path),right=remote.get(path),baseline=this.baseline[path];
         const reason=!syncEligible(path)?'不同步':excluded(path)?'已排除':(file?.size||0)>this.settings.maxFileMB*1024*1024||right?.excluded==='超过单文件限制'?'超过单文件限制':right?.excluded;
         if(reason){skipped.push({path,reason});completed++;continue;}
-        const hashes=file?await mobileFeature<Record<string,string>>('mobile.file-hashes',{root:this.root,paths:[path]}):null;
-        let left=file?{hash:hashes?.[path]||'',base64:'',size:file.size||0}:null;
+        let left=file?{hash:hashes[path]||'',base64:'',size:file.size||0}:null;
         if(left&&!left.hash)throw Error('本地文件已改变，请重新同步：'+path);
         let decision=syncDecision(left?.hash||null,right?baseline&&sameToken(right.etag,baseline.remoteEtag)?baseline.remoteEtag:right.etag||'unknown':null,baseline);
         let cloud:Download|null=null;

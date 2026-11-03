@@ -1,6 +1,7 @@
 import {useEffect,type RefObject} from 'react';
 import {mobileFeature} from './native';
 import {numberMobileCode} from './codeLines';
+import {bindHeightResize} from '../heightResizeGesture';
 
 export interface MobileMedia {src?:string;svg?:string;label:string}
 
@@ -16,7 +17,7 @@ export function readingMedia(target:Element):MobileMedia|null {
 export function useMobileReading(ref:RefObject<HTMLDivElement|null>,enabled:boolean,path:string,content:string,error:(message:string)=>void) {
   useEffect(()=>{
     const root=ref.current;if(!root||!enabled)return;
-    const observed=new Set<Element>();let queued=false,live=true;
+    const observed=new Set<Element>(),resizers=new Map<HTMLElement,()=>void>();let queued=false,live=true;
     const measure=()=>{for(const wrapper of root.querySelectorAll<HTMLElement>('.mobile-table-scroll'))wrapper.dataset.overflow=String(wrapper.scrollWidth>wrapper.clientWidth+1);};
     const sizes=new ResizeObserver(measure);
     const decorate=()=>{
@@ -32,6 +33,16 @@ export function useMobileReading(ref:RefObject<HTMLDivElement|null>,enabled:bool
           shell.classList.add('mobile-diagram-shell');shell.querySelector(':scope > .mobile-code-copy')?.remove();continue;
         }
         for(const code of shell.querySelectorAll<HTMLElement>('pre code'))numberMobileCode(code);
+        if(!resizers.has(shell)){
+          const target=shell.querySelector<HTMLElement>('.tabs-frame')||shell.querySelector<HTMLElement>('pre > code');
+          if(target){
+            const original={height:target.style.height,maxHeight:target.style.maxHeight,overflow:target.style.overflow};let value:number|null=null;
+            const preview=(height:number|null)=>{target.style.height=height===null?original.height:height+'px';target.style.maxHeight=height===null?original.maxHeight:'none';target.style.overflow=height===null?original.overflow:'auto';};
+            const handle=document.createElement('div');handle.className='code-resize reading-code-resize';handle.contentEditable='false';handle.setAttribute('aria-label','临时调整代码块高度');shell.append(handle);
+            const dispose=bindHeightResize(handle,{mobile:true,measure:()=>target.getBoundingClientRect().height,value:()=>value,preview,commit:height=>{value=height;}});
+            resizers.set(shell,()=>{dispose();handle.remove();});
+          }
+        }
         if(shell.querySelector(':scope > .mobile-code-copy,[data-tabs-copy]'))continue;
         const copy=document.createElement('button');copy.className='mobile-code-copy';copy.type='button';copy.textContent='复制';copy.setAttribute('aria-label','复制代码');shell.prepend(copy);
       }
@@ -53,6 +64,6 @@ export function useMobileReading(ref:RefObject<HTMLDivElement|null>,enabled:bool
       catch(failure){error((failure as Error).message);}
     };
     root.addEventListener('click',copy);
-    return()=>{live=false;observer.disconnect();sizes.disconnect();root.removeEventListener('click',copy);};
+    return()=>{live=false;observer.disconnect();sizes.disconnect();for(const dispose of resizers.values())dispose();root.removeEventListener('click',copy);};
   },[enabled,path,content]);
 }

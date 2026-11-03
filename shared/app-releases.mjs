@@ -1,11 +1,12 @@
 import semver from 'semver';
+import androidVariants from './android-variants.json' with {type:'json'};
 export const stableReleaseVersion=tag=>{const value=semver.valid(String(tag||'').replace(/^v/,''));return value&&[value,'v'+value].includes(tag)&&!semver.prerelease(value)?value:null;};
 export const newerRelease=(version,current)=>!!semver.valid(version)&&!!semver.valid(current)&&semver.gt(version,current);
 export const repository = 'JJl624/Moyu';
 export const releases = 'https://github.com/' + repository + '/releases';
 export function releaseAssets(version, platform=typeof process==='object'?process.platform:'android', arch=typeof process==='object'?process.arch:'universal') {
   const prefix=`Moyu-${version}-${arch}`;
-  if(platform==='android')return['Moyu-Android-'+version+'.apk'];
+  if(platform==='android')return['Moyu-Android-'+version+(arch==='webview'?androidVariants.webview.assetSuffix:androidVariants.gecko.assetSuffix)+'.apk'];
   if(platform==='win32')return[prefix+'.exe'];
   if(platform==='linux'){
     // electron-builder uses the distribution's architecture names in each

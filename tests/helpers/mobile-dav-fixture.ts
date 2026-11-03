@@ -1,3 +1,4 @@
+import {openMobileSettings} from './mobile-controls.mjs';
 import {expect,type Page} from '@playwright/test';
 import {mockAndroid} from './mobile-native-mock';
 export async function attachMobileDav(page:Page,dav:any){
@@ -15,7 +16,7 @@ export async function mobileDavFixture(page:Page,dav:any,options:{directory?:str
   await attachMobileDav(page,dav);await mockAndroid(page,options.initial);await page.goto('/mobile.html');
   await expect(page.locator('.mobile-file-list,.mobile-mode-bar,.mobile-empty h2').first()).toBeVisible({timeout:30000});
   if(await page.getByRole('button',{name:'返回笔记',exact:true}).count())await page.getByRole('button',{name:'返回笔记',exact:true}).click();
-  await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByRole('button',{name:'WebDAV 同步',exact:true}).click();
+  await openMobileSettings(page);await page.getByRole('button',{name:'WebDAV 同步',exact:true}).click();
   await page.getByLabel('WebDAV 地址',{exact:true}).fill('https://dav.example.test/');await page.getByLabel('同步目录',{exact:true}).fill(options.directory||'/');await page.getByLabel('WebDAV 用户名',{exact:true}).fill('user');await page.getByLabel('WebDAV 密码',{exact:true}).fill('secret');
   // This fixture's isolated root is an explicitly selected test destination.
   await page.getByLabel('WebDAV 密码',{exact:true}).blur();await expect.poll(()=>page.evaluate(()=>(window as any).__mobileState.davConnections?.[(window as any).__mobileState.root]?.password)).toBe('secret');

@@ -4,7 +4,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.util.Base64;
-import androidx.webkit.JavaScriptReplyProxy;
+import java.util.function.Consumer;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.*;
@@ -19,9 +19,10 @@ final class NativeBridge {
     final ExecutorService io=Executors.newSingleThreadExecutor();
     VaultStore vault;
     private JSONObject settings;
+    private SyncBaselineStore syncBaselines;
     private boolean recovered;
     NativeBridge(MainActivity activity){this.activity=activity;}
-    void request(String message,JavaScriptReplyProxy proxy) {
+    void request(String message,Consumer<String> proxy) {
         String responseId="";
         try {
             JSONObject request=new JSONObject(message);String id=request.getString("id"),method=request.getString("method");JSONArray args=request.optJSONArray("args");
@@ -33,10 +34,11 @@ final class NativeBridge {
     }
     synchronized void initialize() throws Exception {
         if(vault==null)vault=new VaultStore(activity);
+        if(syncBaselines==null)syncBaselines=new SyncBaselineStore(activity.getFilesDir());
         if(!recovered){recoverRelocation();recovered=true;}
         if(settings==null){File file=new File(activity.getFilesDir(),"settings.json");settings=file.isFile()?new JSONObject(new String(java.nio.file.Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8)):new JSONObject();}
     }
-    void reply(JavaScriptReplyProxy proxy,String id,Object value,Exception error) {
+    void reply(Consumer<String> proxy,String id,Object value,Exception error) {
         try{
             JSONObject response=new JSONObject().put("id",id).put("ok",error==null);
             if(error==null)response.put("data",value==null?JSONObject.NULL:value);
@@ -65,6 +67,26 @@ final class NativeBridge {
         if(action.startsWith("mobile.")&&input.has("root")&&!vault.root().equals(input.getString("root")))throw new IOException("知识库已切换。");
         switch(action){
             case "preferences.get":return settings;
+            case "mobile.html-result-update":{
+                String metadata=input.getString("metadata");int index=input.getInt("index");
+                if(index<0||index>=20)throw new IOException("HTML 结果索引无效。");
+                String id=input.optString("id");PinnedResultLocation location=new PinnedResultLocation(metadata,id);
+                byte[] bytes=vault.bytes(metadata);if(!location.consolidated&&bytes.length>1024*1024)throw new IOException("HTML 结果记录过大。");
+                JSONObject document=new JSONObject(new String(bytes,StandardCharsets.UTF_8)),record=document;
+                if(location.consolidated){JSONObject results=document.optJSONObject("results");record=results==null?null:results.optJSONObject(id);}
+                if(record==null)throw new IOException("HTML 结果已移除，请重新打开文档。");
+                JSONArray items=record.optJSONArray("items"),kept=new JSONArray();JSONObject found=null;
+                if(items!=null)for(int i=0;i<items.length();i++){JSONObject item=items.optJSONObject(i);if(item!=null&&item.optInt("index",-1)==index){if(!item.optString("file").equals(index+".html")||found!=null)throw new IOException("HTML 结果记录无效。");found=item;}else kept.put(items.get(i));}
+                if(found==null)throw new IOException("HTML 结果已移除，请重新打开文档。");
+                boolean pinned=input.optBoolean("pinned",true);int height=Math.max(160,Math.min(900,input.optInt("height",found.optInt("height",360))));
+                if(pinned&&height==found.optInt("height",360))return new JSONObject().put("pinned",true).put("height",height);
+                if(pinned){found.put("height",height);kept.put(found);}
+                record.put("items",kept);
+                if(!location.consolidated&&kept.length()==0)vault.delete(metadata);
+                else{byte[] next=document.toString().getBytes(StandardCharsets.UTF_8);if(!Arrays.equals(bytes,next))vault.write(metadata,next,false);}
+                if(!pinned)vault.delete(location.folder+index+".html");
+                return new JSONObject().put("pinned",pinned).put("height",height);
+            }
             case "preferences.set-many":{
                 JSONObject values=input.getJSONObject("values");boolean changed=false;Iterator<String> keys=values.keys();while(keys.hasNext()){String key=keys.next();Object value=values.get(key);if(!Objects.equals(settings.opt(key),value)){settings.put(key,value);changed=true;}}if(changed)saveSettings();return true;
             }
@@ -74,7 +96,16 @@ final class NativeBridge {
             case "mobile.draft-clear":vault.clearDraft(input.getString("path"));return true;
             case "mobile.read-bytes":{byte[] bytes=vault.bytes(input.getString("path"));return new JSONObject().put("base64",Base64.encodeToString(bytes,Base64.NO_WRAP)).put("hash",VaultPaths.hash(bytes)).put("size",bytes.length);}
             case "mobile.file-location":return vault.location(input.getString("path"));
-            case "mobile.file-hashes":{JSONObject result=new JSONObject();JSONArray paths=input.getJSONArray("paths");if(paths.length()>50000)throw new IOException("文件数量过多。");for(int i=0;i<paths.length();i++){String path=paths.getString(i);try{result.put(path,vault.hash(path));}catch(FileNotFoundException ignored){}}return result;}
+            case "mobile.file-hashes":{JSONObject result=new JSONObject();JSONArray paths=input.getJSONArray("paths");if(paths.length()>50000)throw new IOException("文件数量过多。");for(int i=0;i<paths.length();i++){String path=paths.getString(i);try{result.put(path,vault.syncHash(path,input.optString("job")));}catch(FileNotFoundException ignored){}}return result;}
+            case "mobile.sync-baseline-read":{
+                String key=input.getString("key");JSONObject initial=settings.has(key)?new JSONObject(settings.getString(key)):input.optJSONObject("initial");
+                JSONObject baseline=syncBaselines.read(key,initial==null?new JSONObject():initial);
+                // The baseline is durable before the obsolete preference is removed.
+                if(settings.has(key)){settings.remove(key);saveSettings();}
+                return new JSONObject(baseline.toString());
+            }
+            case "mobile.sync-baseline-record":syncBaselines.record(input.getString("key"),input.getString("path"),input.isNull("value")?null:input.getJSONObject("value"));return true;
+            case "mobile.sync-baseline-checkpoint":syncBaselines.checkpoint(input.getString("key"));return true;
             case "mobile.sync-delete":{String path=input.getString("path");if(!vault.hash(path).equals(input.getString("expected")))throw new VaultStore.Conflict(vault.read(path));return trash(path,false);}
             case "mobile.write-bytes":{
                 byte[] bytes=Base64.decode(input.getString("base64"),Base64.DEFAULT);String path=input.getString("path");
@@ -181,7 +212,7 @@ final class NativeBridge {
     }
     void recoverRelocation() throws Exception {
         File journal=new File(activity.getFilesDir(),"relocate-recovery.json");if(!journal.exists())return;
-        JSONObject operation;try(InputStream stream=new android.util.AtomicFile(journal).openRead()){operation=new JSONObject(new String(VaultStore.readBytes(stream),StandardCharsets.UTF_8));}
+        JSONObject operation;try(InputStream stream=VaultStore.openPrivate(journal)){operation=new JSONObject(new String(VaultStore.readBytes(stream),StandardCharsets.UTF_8));}
         if(!vault.root().equals(operation.getString("root")))return;
         JSONArray moves=operation.getJSONArray("moves"),edits=operation.getJSONArray("edits");
         for(int i=moves.length()-1;i>=0;i--){JSONObject move=moves.getJSONObject(i);String from=move.getString("from"),to=move.getString("to");

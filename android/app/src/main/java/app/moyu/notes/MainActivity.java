@@ -22,78 +22,86 @@ import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
     static final String ORIGIN="https://appassets.androidplatform.net";
-    private WebView web;
-    private SystemBarsLayout rootView;
-    private NativeBridge bridge;
+    private View web;
+    private BrowserHost browser;
+    private ImeViewport imeViewport;
+    SystemBarsLayout rootView;
+    NativeBridge bridge;
     private volatile WebDavTransport webDavTransport;
     private final java.util.concurrent.ExecutorService network=Executors.newFixedThreadPool(2);
     private final Map<Integer,Picker> pickers=new HashMap<>();
     private int requestCode=100;
     private volatile boolean destroyed=false;
     private boolean keyboardVisible=false;
+    private boolean foreground,needsBrowserRecovery;
+    private int recoveryAttempts;
+    private TextView pageCover;
+    private final Handler lifecycleHandler=new Handler(Looper.getMainLooper());
+    private final Runnable browserRecovery=this::recoverBrowser;
     interface Reply {void done(Object value,Exception error);}
     interface Picker {void finish(int result,Intent data) throws Exception;}
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        if(Build.VERSION.SDK_INT>=35)RefreshRatePolicy.apply(Build.VERSION.SDK_INT,new RefreshRatePolicy.WindowHints(){
+            public void adaptivePowerSavings(boolean enabled){getWindow().setFrameRatePowerSavingsBalanced(enabled);}
+            public void touchBoost(boolean enabled){getWindow().setFrameRateBoostOnTouchEnabled(enabled);}
+        });
         SystemBarsLayout content=new SystemBarsLayout(this);rootView=content;boolean systemDark=(getResources().getConfiguration().uiMode&Configuration.UI_MODE_NIGHT_MASK)==Configuration.UI_MODE_NIGHT_YES;int initial=systemDark?Color.rgb(29,31,36):Color.rgb(246,247,250);content.setBarColors(initial,initial);setContentView(content);
-        web=new WebView(this);web.setDefaultFocusHighlightEnabled(false);web.setVerticalScrollBarEnabled(false);web.setHorizontalScrollBarEnabled(false);content.addView(web,new FrameLayout.LayoutParams(-1,-1));
+        bridge=new NativeBridge(this);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         getWindow().setStatusBarColor(Color.TRANSPARENT);getWindow().setNavigationBarColor(Color.TRANSPARENT);getWindow().setStatusBarContrastEnforced(false);getWindow().setNavigationBarContrastEnforced(false);
-        if(Build.VERSION.SDK_INT>=30){getWindow().setDecorFitsSystemWindows(false);content.setOnApplyWindowInsetsListener((view,insets)->{android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout()),ime=insets.getInsets(WindowInsets.Type.ime());view.setPadding(bars.left,bars.top,bars.right,Math.max(bars.bottom,ime.bottom));updateKeyboard(insets);return insets;});}
-        else{getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);content.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());updateKeyboard(insets);return insets;});}
-        WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);settings.setSupportMultipleWindows(false);
-        settings.setTextZoom(100);settings.setBuiltInZoomControls(false);settings.setMediaPlaybackRequiresUserGesture(true);
-        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
-        bridge=new NativeBridge(this);
-        WebViewAssetLoader loader=new WebViewAssetLoader.Builder().addPathHandler("/assets/",new WebViewAssetLoader.AssetsPathHandler(this)).build();
-        web.setWebViewClient(new WebViewClient(){
-            @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest request){
-                Uri uri=request.getUrl();
-                if(ORIGIN.equals(uri.getScheme()+"://"+uri.getHost())&&uri.getPath()!=null&&uri.getPath().startsWith("/vault/")) {
-                    try{bridge.initialize();String path=uri.getPath().substring(7);InputStream stream=bridge.vault.open(path);String type=VaultStore.mime(path);if(type.equals("text/html")||type.contains("javascript"))type="text/plain";return new WebResourceResponse(type,null,200,"OK",Collections.singletonMap("Content-Security-Policy","default-src 'none'; sandbox"),stream);}
-                    catch(Exception error){return new WebResourceResponse("text/plain","UTF-8",404,"Not found",Collections.emptyMap(),new ByteArrayInputStream(new byte[0]));}
-                }
-                return loader.shouldInterceptRequest(uri);
-            }
-            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
-                String url=request.getUrl().toString();
-                if(request.isForMainFrame()) {if(url.startsWith(ORIGIN+"/assets/web/"))return false;openExternal(url);return true;}
-                return false;
-            }
-            @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame())showStartupError("页面未能加载，请重启应用。文档仍保存在原位置。");}
-        });
-        web.setWebChromeClient(new WebChromeClient(){
-            @Override public boolean onJsConfirm(WebView view,String url,String message,JsResult result){new AlertDialog.Builder(MainActivity.this).setMessage(message).setPositiveButton("确定",(dialog,which)->result.confirm()).setNegativeButton("取消",(dialog,which)->result.cancel()).setOnCancelListener(dialog->result.cancel()).show();return true;}
-            @Override public boolean onJsAlert(WebView view,String url,String message,JsResult result){new AlertDialog.Builder(MainActivity.this).setMessage(message).setPositiveButton("确定",(dialog,which)->result.confirm()).setOnCancelListener(dialog->result.confirm()).show();return true;}
-            @Override public boolean onShowFileChooser(WebView view,ValueCallback<Uri[]> callback,FileChooserParams parameters){try{Intent intent=parameters.createIntent();launch(intent,(result,data)->callback.onReceiveValue(FileChooserParams.parseResult(result,data)),callback::onReceiveValue);}catch(Exception error){callback.onReceiveValue(null);}return true;}
-        });
-        if(!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)){showStartupError("请先更新 Android System WebView，再打开墨屿。");return;}
-        WebViewCompat.addWebMessageListener(web,"MoyuNative",Collections.singleton(ORIGIN),(view,message,source,isMainFrame,reply)->{if(isMainFrame&&"https".equals(source.getScheme())&&"appassets.androidplatform.net".equals(source.getHost())&&(source.getPort()==-1||source.getPort()==443))bridge.request(message.getData(),reply);});
+        if(Build.VERSION.SDK_INT<30){getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);content.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());updateKeyboard(insets.getSystemWindowInsetBottom()>insets.getStableInsetBottom());return insets;});}
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::handleBack);
-        web.loadUrl(ORIGIN+"/assets/web/mobile.html");
+        attachBrowser();
     }
-    void event(String name){if(web!=null)web.evaluateJavascript("window.dispatchEvent(new Event("+JSONObject.quote(name)+"))",null);}
+    private void attachBrowser(){
+        browser=BrowserFactory.create(this);web=browser.view();web.setDefaultFocusHighlightEnabled(false);web.setVerticalScrollBarEnabled(false);web.setHorizontalScrollBarEnabled(false);rootView.addView(web,new FrameLayout.LayoutParams(-1,-1));
+        if(Build.VERSION.SDK_INT>=30)imeViewport=new ImeViewport(rootView,browser,getWindow(),this::updateKeyboard);
+        showPageCover(needsBrowserRecovery?"正在恢复页面…":"正在打开…");
+        browser.start();if(foreground)browser.resume();
+    }
+    private void showPageCover(String text){
+        if(pageCover==null){pageCover=new TextView(this);pageCover.setGravity(Gravity.CENTER);pageCover.setTextSize(14);rootView.addView(pageCover,new FrameLayout.LayoutParams(-1,-1));}
+        int background=rootView.getBackground() instanceof android.graphics.drawable.ColorDrawable?((android.graphics.drawable.ColorDrawable)rootView.getBackground()).getColor():Color.rgb(246,247,250);
+        pageCover.setBackgroundColor(background);pageCover.setTextColor(androidx.core.graphics.ColorUtils.calculateLuminance(background)>.179?Color.rgb(90,100,119):Color.rgb(195,203,218));pageCover.setText(text);pageCover.bringToFront();
+    }
+    void browserUnavailable(BrowserHost source){
+        if(destroyed||source!=browser)return;
+        needsBrowserRecovery=true;viewportLoading();
+        if(foreground){showPageCover("正在恢复页面…");lifecycleHandler.removeCallbacks(browserRecovery);lifecycleHandler.post(browserRecovery);}
+    }
+    private void recoverBrowser(){
+        if(destroyed||!foreground||!needsBrowserRecovery)return;
+        if(++recoveryAttempts>2){needsBrowserRecovery=false;showStartupError("页面未能恢复，请重新打开应用。");return;}
+        if(imeViewport!=null){imeViewport.close();imeViewport=null;}
+        rootView.removeView(web);browser.close();keyboardVisible=false;
+        attachBrowser();needsBrowserRecovery=false;
+    }
+    void pageReady(){
+        recoveryAttempts=0;
+        if(pageCover!=null){rootView.removeView(pageCover);pageCover=null;}
+    }
+    void event(String name){if(browser!=null)browser.event(name,null);}
     private void handleBack(){
-        WindowInsets insets=web.getRootWindowInsets();
-        boolean keyboard=insets!=null&&(Build.VERSION.SDK_INT>=30?insets.isVisible(WindowInsets.Type.ime()):insets.getSystemWindowInsetBottom()>120*getResources().getDisplayMetrics().density);
-        if(keyboard){((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(web.getWindowToken(),0);web.evaluateJavascript("document.activeElement?.blur()",null);return;}
+        if(keyboardVisible){((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(web.getWindowToken(),0);browser.blur();return;}
         event("moyu-mobile-back");
     }
     @Override public void onBackPressed(){handleBack();}
-    @Override protected void onPause(){event("moyu-mobile-pause");super.onPause();}
-    @Override protected void onResume(){super.onResume();event("moyu-mobile-resume");}
-    @Override protected void onDestroy(){destroyed=true;network.shutdownNow();if(bridge!=null)bridge.io.shutdown();if(web!=null){web.removeAllViews();web.destroy();}super.onDestroy();}
-    void deliver(JavaScriptReplyProxy proxy,String message){runOnUiThread(()->{if(!destroyed)try{proxy.postMessage(message);}catch(IllegalStateException ignored){}});}
+    @Override protected void onPause(){foreground=false;event("moyu-mobile-pause");if(browser!=null)browser.pause();super.onPause();}
+    @Override protected void onResume(){super.onResume();foreground=true;if(browser!=null)browser.resume();if(needsBrowserRecovery)lifecycleHandler.post(browserRecovery);else event("moyu-mobile-resume");}
+    @Override protected void onDestroy(){destroyed=true;lifecycleHandler.removeCallbacksAndMessages(null);network.shutdownNow();if(imeViewport!=null)imeViewport.close();if(bridge!=null)bridge.io.shutdown();if(browser!=null)browser.close();super.onDestroy();}
+    void viewportLoading(){if(imeViewport!=null)imeViewport.loading();}
+    void viewportReady(){if(imeViewport!=null)imeViewport.ready();}
+    void deliver(java.util.function.Consumer<String> proxy,String message){runOnUiThread(()->{if(!destroyed)try{proxy.accept(message);}catch(IllegalStateException ignored){}});}
     @Override public void onConfigurationChanged(Configuration configuration){super.onConfigurationChanged(configuration);event("moyu-mobile-resize");}
     void showStartupError(String message){runOnUiThread(()->new AlertDialog.Builder(this).setTitle("墨屿").setMessage(message).setPositiveButton("关闭",(d,w)->finish()).show());}
-    private void launch(Intent intent,Picker picker,java.util.function.Consumer<Uri[]> cancelled) throws Exception {
+    void launch(Intent intent,Picker picker,java.util.function.Consumer<Uri[]> cancelled) throws Exception {
         int code=++requestCode;pickers.put(code,picker);try{startActivityForResult(intent,code);}catch(Exception error){pickers.remove(code);if(cancelled!=null)cancelled.accept(null);else throw new IOException("没有可用于选择文件的系统应用。",error);}
     }
     @Override protected void onActivityResult(int code,int result,Intent data){super.onActivityResult(code,result,data);Picker picker=pickers.remove(code);if(picker!=null)try{picker.finish(result,data);}catch(Exception error){showStartupError(error.getMessage());}}
-    private void updateKeyboard(WindowInsets insets){
-        boolean visible=Build.VERSION.SDK_INT>=30?insets.isVisible(WindowInsets.Type.ime()):insets.getSystemWindowInsetBottom()>insets.getStableInsetBottom();
+    void updateKeyboard(boolean visible){
         if(visible==keyboardVisible)return;keyboardVisible=visible;
-        if(!destroyed&&web!=null)web.evaluateJavascript("window.dispatchEvent(new CustomEvent('moyu-mobile-keyboard',{detail:"+visible+"}))",null);
+        if(!destroyed&&browser!=null)browser.event("moyu-mobile-keyboard",visible);
     }
     void openExternal(String url){try{Uri uri=Uri.parse(url);if(Arrays.asList("https","http","mailto","tel").contains(uri.getScheme()))startActivity(new Intent(Intent.ACTION_VIEW,uri));}catch(Exception error){Toast.makeText(this,"没有可打开此链接的应用。",Toast.LENGTH_SHORT).show();}}
     boolean dispatchPicker(String method,JSONArray args,Reply reply) throws Exception {
@@ -102,7 +110,18 @@ public final class MainActivity extends Activity {
         if(action.equals("mobile.webdav-cancel")){WebDavTransport.cancel(input.optString("job"));reply.done(true,null);return true;}
         if(action.equals("mobile.update-request")){network.execute(()->{try{reply.done(UpdateTransport.request(options),null);}catch(Exception error){reply.done(null,new IOException("无法连接 GitHub，请稍后重试。"));}});return true;}
         if(action.equals("mobile.finish")){reply.done(true,null);finish();return true;}
+        if(action.equals("mobile.page-ready")){pageReady();reply.done(true,null);return true;}
+        if(action.equals("mobile.keyboard-hide")){((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(web.getWindowToken(),0);browser.blur();reply.done(true,null);return true;}
         if(action.equals("mobile.keyboard-visible")){reply.done(keyboardVisible,null);return true;}
+        if(action.equals("mobile.viewport")){reply.done(imeViewport==null?null:imeViewport.snapshot(),null);return true;}
+        if(action.equals("mobile.keyboard-show")){
+            web.post(()->{
+                if(destroyed||!web.hasWindowFocus()||!web.hasFocus()){reply.done(false,null);return;}
+                if(!keyboardVisible)((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(web,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+                reply.done(true,null);
+            });return true;
+        }
+        if(action.equals("mobile.touch-settings")){reply.done(new JSONObject().put("longPressTimeout",android.view.ViewConfiguration.getLongPressTimeout()).put("doubleTapTimeout",android.view.ViewConfiguration.getDoubleTapTimeout()).put("touchSlop",android.view.ViewConfiguration.get(this).getScaledTouchSlop()/getResources().getDisplayMetrics().density),null);return true;}
         if(action.equals("mobile.copy-text")){((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("代码",input.getString("text")));reply.done(true,null);return true;}
         if(action.equals("mobile.share-files")){
             bridge.io.execute(()->{try{
@@ -122,6 +141,7 @@ public final class MainActivity extends Activity {
             boolean dark="dark".equals(input.optString("theme"));String background=input.optString("background",dark?"#1d1f24":"#ffffff"),navigation=input.optString("navigationBackground",background);
             if(!background.matches("#[0-9a-fA-F]{6}")||!navigation.matches("#[0-9a-fA-F]{6}"))throw new IOException("无效的界面颜色。");
             int top=Color.parseColor(background),bottom=Color.parseColor(navigation);rootView.setBarColors(top,bottom);
+            if(pageCover!=null)showPageCover(pageCover.getText().toString());
             boolean lightStatus=androidx.core.graphics.ColorUtils.calculateLuminance(top)>0.179,lightNavigation=androidx.core.graphics.ColorUtils.calculateLuminance(bottom)>0.179;
             if(Build.VERSION.SDK_INT>=30){WindowInsetsController controller=getWindow().getInsetsController();if(controller!=null)controller.setSystemBarsAppearance((lightStatus?WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS:0)|(lightNavigation?WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS:0),WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS|WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);}
             else getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|(lightStatus?View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR:0)|(lightNavigation?View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR:0));
@@ -153,5 +173,6 @@ public final class MainActivity extends Activity {
         if(action.equals("exportPDF")){String name=args.getString(0),html=args.getString(1);WebView print=new WebView(this);print.setWebViewClient(new WebViewClient(){@Override public void onPageFinished(WebView view,String url){((PrintManager)getSystemService(PRINT_SERVICE)).print(name,print.createPrintDocumentAdapter(name),null);reply.done(true,null);}});print.loadDataWithBaseURL(ORIGIN+"/assets/web/",html,"text/html","UTF-8",null);return true;}
         return false;
     }
+    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);if(BuildConfig.DEBUG&&"app.moyu.GECKO_TEST".equals(intent.getAction())){String id=intent.getStringExtra("id");if(id!=null&&id.matches("[a-zA-Z0-9_-]{1,80}"))try{String expression=new String(java.nio.file.Files.readAllBytes(new File(getFilesDir(),"gecko-test/"+id+".js").toPath()),StandardCharsets.UTF_8);browser.test(id,expression);}catch(Exception error){android.util.Log.e("MoyuGeckoTest","request",error);}}}
     private String fileName(Uri uri){try(Cursor cursor=getContentResolver().query(uri,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){if(cursor!=null&&cursor.moveToFirst()){String name=cursor.getString(0);VaultPaths.checked(name);if(!name.contains("/"))return name;}}catch(Exception ignored){}return "附件-"+System.currentTimeMillis();}
 }

@@ -1,13 +1,14 @@
-import {selectMobile} from './helpers/mobile-controls.mjs';
-import { test, expect } from '@playwright/test';
+import {openMobileSettings,selectMobile} from './helpers/mobile-controls.mjs';
+import { test, expect } from './helpers/mobile-test';
 import { mockAndroid } from './helpers/mobile-native-mock';
 import path from 'node:path';
 const work=path.resolve(import.meta.dirname,'../../../work');
 test.use({viewport:{width:393,height:851},isMobile:true,hasTouch:true,deviceScaleFactor:1});
-test.beforeEach(async({page})=>{await mockAndroid(page);await page.goto('http://127.0.0.1:5184/mobile.html');await expect(page.getByRole('tab',{name:'阅读',exact:true})).toHaveAttribute('aria-selected','true');await expect(page.locator('.ProseMirror')).toHaveCount(0);await page.getByRole('button',{name:'返回笔记',exact:true}).click();await expect(page.locator('.mobile-file-list')).toBeVisible();});
+test.beforeEach(async({page})=>{await mockAndroid(page);await page.goto('/mobile.html');await expect(page.getByRole('tab',{name:'阅读',exact:true})).toHaveAttribute('aria-selected','true');await expect(page.locator('.ProseMirror')).toHaveCount(0);await page.getByRole('button',{name:'返回笔记',exact:true}).click();await expect(page.locator('.mobile-file-list')).toBeVisible();});
 
 test('Phone navigation, rich/source reading, formatting, save, reload and a small keyboard viewport',async({page})=>{
   const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+  await openMobileSettings(page);await selectMobile(page,'保存方式','manual');await page.getByRole('button',{name:'返回笔记',exact:true}).click();
   await page.getByRole('button',{name:'新建',exact:true}).click();await page.getByRole('button',{name:'新建文档',exact:true}).click();
   await page.getByLabel('名称',{exact:true}).fill('旅行清单');await page.getByRole('button',{name:'确定',exact:true}).click();
   await expect(page.getByRole('tab',{name:'阅读',exact:true})).toHaveAttribute('aria-selected','true');await page.getByRole('tab',{name:'编辑',exact:true}).click();
@@ -36,7 +37,7 @@ test('File naming, shared reference rewriting, search, recycle restore and indep
   await expect(page.locator('.mobile-search-results article')).toHaveCount(1);await page.locator('.mobile-search-match').click();await expect(page.locator('.reading-view')).toContainText('重要内容');await expect(page.getByRole('tab',{name:'阅读',exact:true})).toHaveAttribute('aria-selected','true');
   await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'清空搜索',exact:true}).click();await page.getByRole('button',{name:'操作 引用.md',exact:true}).click();
   page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'移入回收站',exact:true}).click();await expect(page.getByRole('button',{name:'操作 引用.md',exact:true})).toHaveCount(0);
-  await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByRole('button',{name:'回收站',exact:true}).click();await page.getByRole('button',{name:'恢复',exact:true}).click();await expect(page.getByText('回收站为空。')).toBeVisible();
+  await openMobileSettings(page);await page.getByRole('button',{name:'回收站',exact:true}).click();await page.getByRole('button',{name:'恢复',exact:true}).click();await expect(page.getByText('回收站为空。')).toBeVisible();
 });
 
 test('Save conflicts retain the current buffer, show diff and allow a deliberate resolution',async({page})=>{
@@ -48,15 +49,41 @@ test('Save conflicts retain the current buffer, show diff and allow a deliberate
   await page.getByRole('button',{name:'保留当前内容',exact:true}).click();await expect(page.getByRole('dialog',{name:'文档差异'})).toHaveCount(0);await expect.poll(()=>page.evaluate(()=>(window as any).__mobileState.files['开始使用.md'].content)).toContain('本地新增');
 });
 
-test('Every file open resets to reading, including HTML, plain text and an already opened document',async({page})=>{
+test('Open documents retain their selected view until close; a fresh launch starts in reading',async({page})=>{
   await page.evaluate(()=>{const state=(window as any).__mobileState;state.files['页面.html']={content:'<h1>页面内容</h1>',updated:Date.now()};state.files['记录.txt']={content:'纯文字内容',updated:Date.now()};window.dispatchEvent(new Event('moyu-mobile-resume'));});
-  for(const name of ['开始使用','记录','页面','开始使用']){
+  for(const name of ['开始使用','记录','页面']){
     await page.locator('.mobile-file-list .mobile-file-open').filter({has:page.locator('strong',{hasText:new RegExp('^'+name+'$')})}).click();
     await expect(page.getByRole('tab',{name:'阅读',exact:true})).toHaveAttribute('aria-selected','true');
     await expect(page.locator('.source-editor,.ProseMirror')).toHaveCount(0);
     await page.getByRole('tab',{name:'源码',exact:true}).click();await expect(page.locator('.source-editor')).toBeVisible();
     await page.getByRole('button',{name:'返回笔记',exact:true}).click();
   }
+  for(const name of ['开始使用','记录','页面']){
+    await page.locator('.mobile-file-list .mobile-file-open').filter({has:page.locator('strong',{hasText:new RegExp('^'+name+'$')})}).click();
+    await expect(page.getByRole('tab',{name:'源码',exact:true})).toHaveAttribute('aria-selected','true');
+    await page.getByRole('button',{name:'返回笔记',exact:true}).click();
+  }
+  await page.reload();await expect(page.getByRole('tab',{name:'阅读',exact:true})).toHaveAttribute('aria-selected','true');
+  await page.getByRole('tab',{name:'源码',exact:true}).click();
+  await page.getByRole('button',{name:'文档操作',exact:true}).click();await page.getByRole('button',{name:'关闭文档',exact:true}).click();
+  await page.getByRole('button',{name:'返回笔记',exact:true}).click();
+  await page.locator('.mobile-file-list .mobile-file-open').filter({has:page.locator('strong',{hasText:'页面'})}).click();
+  await expect(page.getByRole('tab',{name:'阅读',exact:true})).toHaveAttribute('aria-selected','true');
+  expect(await page.evaluate(()=>(window as any).__mobileState.keyboardVisible)).toBe(false);
+});
+
+test('Editing view survives return, document switching and rename, then resets after closing all documents',async({page})=>{
+  await page.evaluate(()=>{(window as any).__mobileState.files['第二篇.md']={content:'第二篇正文',updated:Date.now()};window.dispatchEvent(new Event('moyu-mobile-resume'));});
+  await page.locator('[data-path="开始使用.md"] .mobile-file-open').tap();await page.getByRole('tab',{name:'编辑',exact:true}).tap();
+  await page.getByRole('button',{name:'返回笔记',exact:true}).tap();await page.locator('[data-path="第二篇.md"] .mobile-file-open').tap();
+  await expect(page.getByRole('tab',{name:'阅读',exact:true})).toHaveAttribute('aria-selected','true');await page.getByRole('tab',{name:'源码',exact:true}).tap();
+  await page.getByRole('button',{name:'返回笔记',exact:true}).tap();await page.locator('[data-path="开始使用.md"] .mobile-file-open').tap();
+  await expect(page.getByRole('tab',{name:'编辑',exact:true})).toHaveAttribute('aria-selected','true');
+  await page.getByRole('button',{name:'文档操作',exact:true}).tap();await page.getByRole('button',{name:'重命名',exact:true}).tap();
+  await page.getByLabel('名称',{exact:true}).fill('新名称.md');await page.getByRole('button',{name:'确定',exact:true}).tap();
+  await expect(page.locator('.mobile-document-title strong')).toHaveText('新名称');await expect(page.getByRole('tab',{name:'编辑',exact:true})).toHaveAttribute('aria-selected','true');
+  await page.locator('.mobile-document-title').tap();await page.getByRole('button',{name:'全部关闭',exact:true}).tap();
+  await page.locator('[data-path="新名称.md"] .mobile-file-open').tap();await expect(page.getByRole('tab',{name:'阅读',exact:true})).toHaveAttribute('aria-selected','true');
 });
 
 test('Move uses a folder picker and updates the inventory without requiring a typed path',async({page})=>{
@@ -67,7 +94,7 @@ test('Move uses a folder picker and updates the inventory without requiring a ty
 });
 
 for(const theme of ['light','dark'])test(`Phone and tablet touch layouts and theme (${theme})`,async({page})=>{
-  await page.getByRole('button',{name:'设置',exact:true}).click();await selectMobile(page,'外观',theme);await page.getByRole('button',{name:'笔记',exact:true}).click();
+  await openMobileSettings(page);await selectMobile(page,'外观',theme);await page.getByRole('button',{name:'返回笔记',exact:true}).click();
   await page.screenshot({path:path.join(work,`android-home-${theme}.png`)});
   await page.getByRole('button',{name:'开始使用',exact:false}).first().click();await expect(page.locator('.reading-view')).toBeVisible();
   for(const size of [{width:360,height:740},{width:800,height:600}]){await page.setViewportSize(size);expect(await page.locator('.mobile-app').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);}

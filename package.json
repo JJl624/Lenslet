@@ -32,7 +32,8 @@
     "test:portable-bootstrap": "node tests/portable-bootstrap.mjs",
     "test:stability": "node scripts/run-regressions.mjs stability",
     "test:performance": "node scripts/run-regressions.mjs performance",
-    "assets": "node scripts/build-assets.mjs restore"
+    "assets": "node scripts/build-assets.mjs restore",
+    "dist:android:webview": "node scripts/build-android.mjs --system-webview"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.3.4",

@@ -1,0 +1,8 @@
+{
+  "manifest_version": 2,
+  "name": "Moyu native transport",
+  "version": "2.0",
+  "browser_specific_settings": { "gecko": { "id": "native@moyu.app" } },
+  "permissions": ["nativeMessaging", "nativeMessagingFromContent", "geckoViewAddons"],
+  "content_scripts": [{ "matches": ["http://127.0.0.1/*"], "js": ["transport.js"], "run_at": "document_start", "all_frames": false }]
+}

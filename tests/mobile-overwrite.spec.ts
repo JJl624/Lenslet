@@ -1,4 +1,4 @@
-import {test,expect,type Page} from '@playwright/test';
+import {test,expect,type Page} from './helpers/mobile-test';
 import {mobileDavFixture,runMobileSync} from './helpers/mobile-dav-fixture';
 import {davServer} from './helpers/dav-server.cjs';
 const initial={files:{'a.md':{content:'原文 A'},'b.md':{content:'原文 B'}}};

@@ -653,10 +653,7 @@ export const resourceView = (path: string) =>
         parent.append(element);
       };
       parsed?.nodes.forEach(ast => paint(ast, preview));
-      if (attachment && single.type === 'image') preview.classList.add('attachment-image');
-      else if (attachment && !kind(single)) {
-        preview.classList.add('attachment-file');
-      }
+      if (attachment && single.type === 'image' && blockPreview) preview.classList.add('attachment-image');
       sync();
     };
     const enter = (event: MouseEvent) => {

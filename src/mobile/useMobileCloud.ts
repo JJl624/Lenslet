@@ -3,7 +3,7 @@ import {flatten,type FileNode,type OpenDocument} from '../types';
 import {excludedBy,policy,syncEligible} from '../../shared/sync-policy.mjs';
 import {sameToken} from '../../shared/sync-validator.mjs';
 import {mobileFeature} from './native';
-import {currentSyncOperation,emptySummary,readBaseline,readSummary,syncKey,type SyncConfig,type SyncSummary} from './syncState';
+import {currentSyncOperation,emptySummary,loadSyncBaseline,readSummary,syncKey,type SyncConfig,type SyncSummary} from './syncState';
 
 export type CloudState='local'|'pending'|'remote'|'synced'|'conflict'|'excluded';
 export const cloudLabels:Record<CloudState,string>={local:'未同步',pending:'待同步',remote:'云端有更新',synced:'已同步',conflict:'需处理',excluded:'已排除'};
@@ -13,11 +13,11 @@ export function useMobileCloud(root:string,tree:FileNode[],documents:Record<stri
   useEffect(()=>{const update=()=>setOperation(currentSyncOperation());window.addEventListener('moyu-mobile-sync-progress',update);return()=>window.removeEventListener('moyu-mobile-sync-progress',update);},[]);
   useEffect(()=>{const update=()=>setRevision(value=>value+1);window.addEventListener('moyu-mobile-sync-changed',update);return()=>window.removeEventListener('moyu-mobile-sync-changed',update);},[]);
   useEffect(()=>{
-    if(!enabled||!root)return;let alive=true;
+    if(!enabled||!root||currentSyncOperation()?.root===root)return;let alive=true;
     void(async()=>{
       const config=await mobileFeature<SyncConfig>('mobile.webdav-config',{root});if(!alive)return;
       if(!config.url){setValue({configured:false,loading:false,summary:emptySummary(),files:{},error:''});return;}
-      const key=await syncKey(root,config),summary=readSummary(key),baseline=readBaseline(key),settings=policy(config.sync),excluded=excludedBy(settings);
+      const key=await syncKey(root,config),summary=readSummary(key),baseline=await loadSyncBaseline(root,key),settings=policy(config.sync),excluded=excludedBy(settings);
       setValue(value=>({...value,configured:true,loading:true,summary,error:''}));
       const files=flatten(tree),eligible=files.filter(file=>syncEligible(file.path)&&!excluded(file.path)&&(file.size||0)<=settings.maxFileMB*1024*1024);
       const hashes=await mobileFeature<Record<string,string>>('mobile.file-hashes',{root,paths:eligible.map(file=>file.path)});if(!alive)return;
@@ -30,7 +30,7 @@ export function useMobileCloud(root:string,tree:FileNode[],documents:Record<stri
       setValue({configured:true,loading:false,summary,files:statuses,error:''});
     })().catch(error=>{if(alive)setValue(value=>({...value,loading:false,error:(error as Error).message}));});
     return()=>{alive=false;};
-  },[root,tree,revision,enabled]);
+  },[root,tree,revision,enabled,operation?.id]);
   const files={...value.files};for(const doc of Object.values(documents))if(doc.dirty&&files[doc.path]!=='excluded')files[doc.path]='pending';
   return {...value,files,operation:operation?.root===root?operation:null};
 }

@@ -7,7 +7,7 @@ import { WebDAVCloud, fileSize } from './WebDAVCloud';
 import { type SyncConflict, type SyncPreview, type SyncStatus, type WebDAVConnection } from './webdavTypes';
 import './webdav.css';
 export function WebDAVPanel({ root, beforeAction, refresh, openSettings, unsaved }: {
-  root: string; beforeAction(): Promise<void>; refresh(): Promise<void>; openSettings(): void; unsaved: boolean;
+  root: string; beforeAction(): Promise<boolean>; refresh(): Promise<void>; openSettings(): void; unsaved: boolean;
 }) {
   const [state, setState] = useState<SyncStatus>({ lastSync: 0, conflicts: [] });
   const [busy, setBusy] = useState<false | 'sync' | 'directory'>(false), [error, setError] = useState(''), [message, setMessage] = useState('');
@@ -39,14 +39,26 @@ export function WebDAVPanel({ root, beforeAction, refresh, openSettings, unsaved
     setMessage(result.conflicts.length ? `${result.conflicts.length} 个冲突待处理` : result.changes?.length ? `已同步 ${result.changes.length} 项` : "无更改");
   };
   const scan = () => run(async () => {
-    await beforeAction();
+    if (!(await beforeAction())) return;
     const plan = await api.feature<SyncPreview>('webdav.preview');
     const config = await api.feature<{ webdav: WebDAVConnection }>('connections.get');
     if (plan.firstSync || plan.deletions.length && config.webdav.sync.deletion === 'confirm') { setPreview(plan); setLimit(100); }
     else await apply(plan.token);
   });
   const resolve = (conflict: SyncConflict, choice: string) => run(async () => {
-    const result = await api.feature<SyncStatus & SyncPreview>('webdav.resolve', { ...conflict, choice });
+    if (!(await beforeAction())) return;
+    let result: SyncStatus & SyncPreview;
+    try { result = await api.feature<SyncStatus & SyncPreview>('webdav.resolve', { ...conflict, choice }); }
+    catch (e) {
+      const error=e as Error & {code?:string;current?:unknown}, current=error.current;
+      if(error.code==='CONFLICT'&&current&&typeof current==='object'&&'path' in current&&'localText' in current){
+        const latest=current as SyncConflict;
+        setState(s=>({...s,conflicts:[...s.conflicts.filter(item=>item.path!==latest.path),latest]}));
+        setMessage('冲突内容已更新，请重新选择处理方式。');
+        return;
+      }
+      throw e;
+    }
     if (result.needsConfirmation) { setPreview(result); return; }
     await load(); await refresh(); setMessage('冲突已处理');
   });
@@ -62,7 +74,7 @@ export function WebDAVPanel({ root, beforeAction, refresh, openSettings, unsaved
         <RefreshCw size={14} className={syncing ? 'spin' : ''} />{syncing ? '正在同步…' : '立即同步'}</button>
         {active && <button className='icon-button' aria-label={directoryBusy?'取消刷新':'取消同步'} onClick={() => void api.feature('webdav.cancel').catch(e => setError(e.message))}><X size={15} /></button>}
       </div>
-      {unsaved && <p className='muted-note'>有未保存内容，仅同步已保存的文件。</p>}
+      {unsaved && <p className='muted-note'>有未保存内容，同步前会先询问如何处理。</p>}
       {active && <div className='dav-progress' role='status'><span>{directoryBusy ? '正在刷新云端目录…' : state.job?.phase === 'scan' ? '扫描文件' : `传输 ${state.job?.completed || 0} / ${state.job?.total || 0}`}</span>
         {state.job?.phase === 'transfer' ? <progress max={Math.max(1, state.job.total)} value={state.job.completed} />:<progress/>}
         {state.job?.current && <small title={state.job.current}>{state.job.current}</small>}</div>}

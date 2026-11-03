@@ -5,7 +5,6 @@ import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.webkit.WebView;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import org.junit.Assume;
@@ -46,10 +45,10 @@ public class StartupSyncInstrumentationTest {
         fail("Timed out waiting for native startup sync");
     }
     private Object js(String source) throws Exception {
-        Field field=MainActivity.class.getDeclaredField("web");field.setAccessible(true);
-        WebView web=(WebView)field.get(activity);CompletableFuture<String> value=new CompletableFuture<>();
-        instrumentation.runOnMainSync(()->web.evaluateJavascript(source,value::complete));
-        return new JSONTokener(value.get(5,TimeUnit.SECONDS)).nextValue();
+        Field field=MainActivity.class.getDeclaredField("browser");field.setAccessible(true);
+        BrowserHost browser=(BrowserHost)field.get(activity);CompletableFuture<String> value=new CompletableFuture<>();
+        instrumentation.runOnMainSync(()->browser.inspect(source,value::complete));
+        return new JSONTokener(value.get(30,TimeUnit.SECONDS)).nextValue();
     }
     private JSONObject control(String path,JSONObject body) throws Exception {
         Request.Builder request=new Request.Builder().url(server+"__test/"+path).header("Authorization",okhttp3.Credentials.basic("user","secret"));

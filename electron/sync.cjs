@@ -399,7 +399,16 @@ class WebDAVSync {
       this.controller.signal.throwIfAborted();
       const name = operation.path; let direction = operation.direction;
       if (input.resolution?.path === name) {
-        if (input.resolution.local !== operation.local || input.resolution.remote !== operation.remote) throw fault('冲突版本已改变，请重新同步后再选择。', 'CONFLICT');
+        if (input.resolution.local !== operation.local || input.resolution.remote !== operation.remote) {
+          const current=operation.direction==='conflict'?await this.conflict(plan,operation):null;
+          if(current){
+            plan.state.conflicts=[...(plan.state.conflicts||[]).filter(item=>item.path!==name),current];
+            if(plan.local[name])plan.state.local[name]=localMeta(plan.local[name]);else delete plan.state.local[name];
+            if(plan.remote[name])plan.state.remote[name]=remoteMeta(plan.remote[name]);else delete plan.state.remote[name];
+            await plan.persistence.compact(plan.state);
+          }
+          throw fault(current?'冲突内容已更新，请重新选择处理方式。':'冲突状态已改变，请重新同步。','CONFLICT',current);
+        }
         direction = input.resolution.choice === 'local' ? 'upload' : input.resolution.choice === 'remote' ? 'download' : 'both';
       }
       this.progress({ current: name });

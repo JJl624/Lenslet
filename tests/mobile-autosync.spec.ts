@@ -1,5 +1,5 @@
-import {selectMobile} from './helpers/mobile-controls.mjs';
-import {test,expect,type Page} from '@playwright/test';
+import {openMobileSettings,selectMobile} from './helpers/mobile-controls.mjs';
+import {test,expect,type Page} from './helpers/mobile-test';
 import {mobileDavFixture,runMobileSync} from './helpers/mobile-dav-fixture';
 import {davServer} from './helpers/dav-server.cjs';
 const seed={files:{'a.md':{content:'# 初始内容'}}};
@@ -16,7 +16,7 @@ async function synced(page:Page,dav:any,settings:Record<string,unknown>={onOpen:
   await mobileDavFixture(page,dav,{initial:seed});await runMobileSync(page);await configure(page,{retries:0,...settings});
 }
 async function source(page:Page){
-  await restart(page);await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();await selectMobile(page,'保存方式','manual');await page.getByRole('button',{name:'笔记',exact:true}).click();await page.locator('[data-path="a.md"] .mobile-file-open').click();
+  await restart(page);await page.getByRole('button',{name:'返回笔记',exact:true}).click();await openMobileSettings(page);await selectMobile(page,'保存方式','manual');await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.locator('[data-path="a.md"] .mobile-file-open').click();
   await page.getByRole('tab',{name:'源码',exact:true}).click();return page.locator('.source-editor .cm-content');
 }
 
@@ -26,14 +26,14 @@ test('Cold startup downloads a newer cloud copy and refreshes the open document 
 
 test('Saving one document while another stays dirty queues sync until the remaining draft is discarded',async({page})=>{
   const dav=await davServer();try{
-    await mobileDavFixture(page,dav,{initial:{files:{'a.md':{content:'原文 A'},'b.md':{content:'原文 B'}}}});await runMobileSync(page);await configure(page,{onOpen:false,afterSave:true});await page.reload();await expect(page.getByRole('tab',{name:'阅读',exact:true})).toBeVisible();await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();await selectMobile(page,'保存方式','manual');await page.getByRole('button',{name:'笔记',exact:true}).click();
+    await mobileDavFixture(page,dav,{initial:{files:{'a.md':{content:'原文 A'},'b.md':{content:'原文 B'}}}});await runMobileSync(page);await configure(page,{onOpen:false,afterSave:true});await page.reload();await expect(page.getByRole('tab',{name:'阅读',exact:true})).toBeVisible();await page.getByRole('button',{name:'返回笔记',exact:true}).click();await openMobileSettings(page);await selectMobile(page,'保存方式','manual');await page.getByRole('button',{name:'返回笔记',exact:true}).click();
     await page.locator('[data-path="a.md"] .mobile-file-open').click();await page.getByRole('tab',{name:'源码',exact:true}).click();await page.locator('.source-editor .cm-content').fill('保留在本机的 A 草稿');await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.locator('[data-path="b.md"] .mobile-file-open').click();await page.getByRole('tab',{name:'源码',exact:true}).click();await page.locator('.source-editor .cm-content').fill('已保存的 B');const before=dav.requests.length;await page.getByRole('button',{name:'保存文档',exact:true}).click();await expect(page.getByRole('button',{name:'保存文档',exact:true})).toHaveCount(0);await page.waitForTimeout(1500);expect(dav.requests.length).toBe(before);
     await page.locator('.mobile-document-title').click();await page.getByRole('button',{name:'关闭 a',exact:true}).click();await page.getByRole('dialog',{name:'未保存的修改'}).getByRole('button',{name:'放弃修改',exact:true}).click();await expect.poll(async()=>(await summary(page)).pendingUploads,{timeout:45000}).toEqual(['b.md']);expect(dav.files.get('/a.md')?.toString()).toBe('原文 A');expect(dav.files.get('/b.md')?.toString()).toBe('原文 B');
   }finally{await dav.close();}
 });
 
-test('Manual sync checks drafts first and cancellation leaves both disk and cloud unchanged',async({page})=>{
-  const dav=await davServer();try{await synced(page,dav,{onOpen:false,afterSave:false});const edit=await source(page);await edit.fill('# 手机误操作草稿');await paused(page);await resumed(page);await page.getByRole('button',{name:'返回笔记',exact:true}).click();const before=dav.requests.length;await page.getByRole('button',{name:'立即同步',exact:true}).click();const dialog=page.getByRole('dialog',{name:'同步前处理修改'});await expect(dialog).toBeVisible();await dialog.getByRole('button',{name:'取消',exact:true}).click();expect(dav.requests.length).toBe(before);expect(dav.files.get('/a.md')?.toString()).toBe('# 初始内容');expect(await page.evaluate(()=>(window as any).__mobileState.files['a.md'].content)).toBe('# 初始内容');await page.locator('[data-path="a.md"] .mobile-file-open').click();await expect(page.locator('.reading-view')).toContainText('手机误操作草稿');}finally{await dav.close();}
+test('Manual sync checks drafts first and cancellation retains both copies and the selected source mode',async({page})=>{
+  const dav=await davServer();try{await synced(page,dav,{onOpen:false,afterSave:false});const edit=await source(page);await edit.fill('# 手机误操作草稿');await paused(page);await resumed(page);await page.getByRole('button',{name:'返回笔记',exact:true}).click();const before=dav.requests.length;await page.getByRole('button',{name:'立即同步',exact:true}).click();const dialog=page.getByRole('dialog',{name:'同步前处理修改'});await expect(dialog).toBeVisible();await dialog.getByRole('button',{name:'取消',exact:true}).click();expect(dav.requests.length).toBe(before);expect(dav.files.get('/a.md')?.toString()).toBe('# 初始内容');expect(await page.evaluate(()=>(window as any).__mobileState.files['a.md'].content)).toBe('# 初始内容');await page.locator('[data-path="a.md"] .mobile-file-open').click();await expect(page.getByRole('tab',{name:'源码',exact:true})).toHaveAttribute('aria-selected','true');await expect(page.locator('.source-editor')).toContainText('手机误操作草稿');}finally{await dav.close();}
 });
 
 test('Automatic sync defers while any open document has a draft, without prompting or touching the server',async({page})=>{

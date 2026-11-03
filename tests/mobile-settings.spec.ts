@@ -1,9 +1,15 @@
-import {selectMobile} from './helpers/mobile-controls.mjs';
-import {test,expect,type Page} from '@playwright/test';
+import {openMobileSettings,selectMobile} from './helpers/mobile-controls.mjs';
+import {test,expect,type Page} from './helpers/mobile-test';
 import path from 'node:path';
 import {mockAndroid} from './helpers/mobile-native-mock';
 const work=path.resolve(import.meta.dirname,'../../../work');
-async function settings(page:Page){await mockAndroid(page);await page.goto('/mobile.html');await expect(page.getByRole('tab',{name:'阅读',exact:true})).toBeVisible({timeout:30000});await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();}
+async function settings(page:Page){await mockAndroid(page);await page.goto('/mobile.html');await expect(page.getByRole('tab',{name:'阅读',exact:true})).toBeVisible({timeout:30000});await page.getByRole('button',{name:'返回笔记',exact:true}).click();await openMobileSettings(page);}
+
+test('Back closes an appearance menu before leaving settings or changing its value',async({page})=>{
+  await settings(page);const trigger=page.getByRole('combobox',{name:'外观',exact:true});await trigger.tap();await expect(page.getByRole('listbox',{name:'外观',exact:true})).toBeVisible();
+  await page.evaluate(()=>window.dispatchEvent(new Event('moyu-mobile-back')));await expect(page.getByRole('listbox',{name:'外观',exact:true})).toHaveCount(0);await expect(trigger).toBeVisible();await expect(trigger).toHaveAttribute('data-value','system');
+  expect(await page.evaluate(()=>(window as any).__mobileState.keyboardVisible)).toBe(false);
+});
 
 test('Settings group related controls, align rows and preserve touch targets on a narrow phone',async({page})=>{
   await settings(page);await expect(page.locator('.mobile-settings-group > h2')).toHaveText(['界面','字体与排版','编辑','文件与同步','软件更新']);
@@ -23,7 +29,7 @@ test('All settings remain usable with large UI text; values persist and file act
   expect(await page.locator('.mobile-home-content').evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
   for(const control of await page.locator('.mobile-setting-row input:not([type=checkbox]),.mobile-setting-row [role=combobox]').all()){await control.scrollIntoViewIfNeeded();const box=(await control.boundingBox())!;expect(box.width).toBeGreaterThan(44);expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(320);}
   await page.getByRole('button',{name:'编辑工具栏',exact:true}).click();await page.getByRole('button',{name:'关闭编辑工具栏',exact:true}).click();await page.getByRole('button',{name:'选择知识库',exact:true}).click();await expect(page.getByRole('dialog',{name:'知识库',exact:true})).toBeVisible();await page.getByRole('button',{name:'关闭知识库',exact:true}).click();await page.getByRole('button',{name:'回收站',exact:true}).click();await expect(page.getByRole('dialog',{name:'回收站',exact:true})).toBeVisible();await page.getByRole('button',{name:'关闭回收站',exact:true}).click();
-  await page.locator('.mobile-home-content').evaluate(element=>element.scrollTop=0);await page.screenshot({path:path.join(work,'android-settings-large-text.png')});await page.reload();await expect(page.getByRole('tab',{name:'阅读',exact:true})).toBeVisible();await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();
+  await page.locator('.mobile-home-content').evaluate(element=>element.scrollTop=0);await page.screenshot({path:path.join(work,'android-settings-large-text.png')});await page.reload();await expect(page.getByRole('tab',{name:'阅读',exact:true})).toBeVisible();await page.getByRole('button',{name:'返回笔记',exact:true}).click();await openMobileSettings(page);
   for(const [label,value]of [['界面字号','24'],['正文字号','10'],['行高','2.4'],['表格缩放','150'],['保存方式','close']])if(label==='保存方式')await expect(page.getByRole('combobox',{name:label,exact:true})).toHaveAttribute('data-value',value);else await expect(page.getByLabel(label,{exact:true})).toHaveValue(value);
 });
 
@@ -43,6 +49,30 @@ test('Vertical touch scrolling across a font slider does not change it; horizont
   await slider.scrollIntoViewIfNeeded();const next=(await slider.boundingBox())!,start=next.x+next.width/2,top=next.y+next.height/2;await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:start,y:top}]});for(let step=1;step<=6;step++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:start+step*6,y:top}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await expect(slider).not.toHaveValue('17');await cdp.detach();
 });
 
+test('Every range previews its formatted value during a touch drag and applies it only on release',async({page,context})=>{
+  await settings(page);const cdp=await context.newCDPSession(page);
+  try{
+    for(const [label,key,format] of [
+      ['界面字号','moyu-mobile-ui-size',(value:string)=>value+' px'],['正文字号','moyu-mobile-size',(value:string)=>value+' px'],
+      ['代码块字号','moyu-mobile-code-size',(value:string)=>value+' px'],['行高','moyu-mobile-line',(value:string)=>Number(value).toFixed(1)+' 倍'],['表格缩放','moyu-mobile-table-zoom',(value:string)=>value+'%'],
+    ] as const){
+      const slider=page.getByLabel(label,{exact:true}),row=slider.locator('..'),output=row.locator('output');await slider.scrollIntoViewIfNeeded();
+      const initial=await slider.inputValue(),saved=await page.evaluate(key=>(window as any).__mobileState.settings[key],key),box=(await slider.boundingBox())!,x=box.x+box.width*.5,y=box.y+box.height/2;
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:box.x+box.width*.7,y}]});
+      await expect(slider).not.toHaveValue(initial);const preview=await slider.inputValue();await expect(output).toHaveText(format(preview));await expect(slider).toHaveAttribute('aria-valuetext',format(preview));
+      expect(await page.evaluate(key=>(window as any).__mobileState.settings[key],key)).toBe(saved);
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await expect(output).toHaveText(format(preview));await expect.poll(()=>page.evaluate(key=>(window as any).__mobileState.settings[key],key)).toBe(preview);
+      await slider.press('ArrowLeft');await expect(output).toHaveText(format(await slider.inputValue()));
+    }
+  }finally{await cdp.detach();}
+});
+
+test('Canceling a range drag restores its value and the document close action stays last',async({page,context})=>{
+  await settings(page);const slider=page.getByLabel('正文字号',{exact:true}),output=slider.locator('..').locator('output');await slider.scrollIntoViewIfNeeded();const box=(await slider.boundingBox())!,y=box.y+box.height/2,cdp=await context.newCDPSession(page);
+  try{await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:box.x+box.width/2,y}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:box.x+box.width*.8,y}]});await expect(output).not.toHaveText('17 px');await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await expect(output).toHaveText('17 px');await expect(slider).toHaveValue('17');}finally{await cdp.detach();}
+  await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.locator('[data-path="开始使用.md"] .mobile-file-open').click();await page.getByRole('button',{name:'文档操作',exact:true}).click();await expect(page.getByRole('dialog',{name:'文档操作',exact:true}).locator('.mobile-actions > button').last()).toHaveText('关闭文档');
+});
+
 test('Page size controls sit beside view tabs, respect bounds and leave UI size, file content and keyboard alone',async({page})=>{
   await mockAndroid(page);await page.goto('/mobile.html');await page.setViewportSize({width:320,height:740});
   for(const mode of ['阅读','编辑','源码']){
@@ -51,5 +81,5 @@ test('Page size controls sit beside view tabs, respect bounds and leave UI size,
     expect(await page.evaluate(()=>(window as any).__mobileState.keyboardVisible)).toBe(false);
   }
   await expect(page.locator('.mobile-document-title small')).toHaveText('已保存');for(let i=0;i<7;i++)await page.getByRole('button',{name:'缩小字号',exact:true}).click();await expect(page.getByRole('button',{name:'缩小字号',exact:true})).toBeDisabled();
-  await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();await expect(page.getByLabel('正文字号',{exact:true})).toHaveValue('10');await expect(page.getByLabel('界面字号',{exact:true})).toHaveValue('14');
+  await page.getByRole('button',{name:'返回笔记',exact:true}).click();await openMobileSettings(page);await expect(page.getByLabel('正文字号',{exact:true})).toHaveValue('10');await expect(page.getByLabel('界面字号',{exact:true})).toHaveValue('14');
 });

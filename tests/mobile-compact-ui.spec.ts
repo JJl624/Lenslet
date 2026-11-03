@@ -1,17 +1,18 @@
-import {test,expect,type Page} from '@playwright/test';
+import {openMobileSettings} from './helpers/mobile-controls.mjs';
+import {test,expect,type Page} from './helpers/mobile-test';
 import path from 'node:path';
 import {mockAndroid} from './helpers/mobile-native-mock';
 import {selectMobile} from './helpers/mobile-controls.mjs';
 const work=path.resolve(import.meta.dirname,'../../../work');
-async function start(page:Page,content:string,order?:string[]){await mockAndroid(page,{files:{'note.md':{content}}});if(order)await page.addInitScript(order=>{(window as any).__mobileState.settings['moyu-mobile-shortcut-order']=JSON.stringify(order);},order);await page.goto('/mobile.html');await expect(page.getByRole('tab',{name:'阅读',exact:true})).toBeVisible({timeout:30000});}
-async function settings(page:Page){await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();}
-async function open(page:Page){await page.getByRole('button',{name:'笔记',exact:true}).click();await page.locator('[data-path="note.md"] .mobile-file-open').click();}
+async function start(page:Page,content:string,order?:string[]){await mockAndroid(page,{files:{'note.md':{content}}});if(order)await page.addInitScript(order=>{if(window!==window.top)return;(window as any).__mobileState.settings['moyu-mobile-shortcut-order']=JSON.stringify(order);},order);await page.goto('/mobile.html');await expect(page.getByRole('tab',{name:'阅读',exact:true})).toBeVisible({timeout:30000});}
+async function settings(page:Page){await page.getByRole('button',{name:'返回笔记',exact:true}).click();await openMobileSettings(page);}
+async function open(page:Page){await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.locator('[data-path="note.md"] .mobile-file-open').click();}
 
 test('Only table context retains copy; removed actions disappear from formats, pins and saved orders',async({page})=>{
   await start(page,'- 项目\n\n  ```js\n  console.log(1);\n  ```\n\n  | 名称 | 值 |\n  | --- | --- |\n  | 甲 | 1 |\n',['copyCode','copyTable','copyCell','copyQuote','copyList','selectTable','paragraphBefore','paragraphAfter','bold']);
   await page.getByRole('tab',{name:'编辑',exact:true}).click();await expect(page.locator('.editor-host')).not.toHaveAttribute('data-editor-pending','true');const bar=page.getByRole('toolbar',{name:'文本格式'});
-  await page.locator('.milkdown-code-block .cm-content').tap();await expect(bar.getByRole('button',{name:/复制|段前|选中表格/})).toHaveCount(0);await expect(bar.getByRole('button',{name:'块后换行',exact:true})).toBeVisible();
-  await page.locator('.ProseMirror table td p').first().tap();await expect(bar.getByRole('button',{name:/复制/})).toHaveCount(1);await bar.getByRole('button',{name:'复制表格',exact:true}).click();await expect.poll(()=>page.evaluate(()=>(window as any).__mobileState.clipboard)).toContain('甲\t1');
+  await page.locator('.milkdown-code-block .cm-content').tap();await expect(bar.getByRole('button',{name:/复制|段前|选中表格/})).toHaveCount(0);await expect(bar.getByRole('button',{name:'换行',exact:true})).toBeVisible();
+  await page.locator('.ProseMirror table td p').first().tap();await expect(bar.getByRole('button',{name:/复制/})).toHaveCount(1);await bar.getByRole('button',{name:'复制',exact:true}).click();await expect.poll(()=>page.evaluate(()=>(window as any).__mobileState.clipboard)).toContain('甲\t1');
   await page.getByRole('button',{name:'全部格式',exact:true}).click();const sheet=page.getByRole('dialog',{name:'全部格式',exact:true});await expect(sheet.getByRole('button',{name:/复制|在前面插入段落|选中表格/})).toHaveCount(0);await page.getByRole('button',{name:'自定义工具栏',exact:true}).click();await expect(page.getByRole('button',{name:/添加 .*复制/})).toHaveCount(0);expect(await page.locator('[data-shortcut]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-shortcut')))).toEqual(['paragraphAfter','bold']);
 });
 
@@ -22,8 +23,15 @@ test('All selection menus expand in the page, themes use English names and keybo
   expect(await page.evaluate(()=>(window as any).__mobileState.keyboardVisible)).toBe(false);
 });
 
-test('Navigation has a single selected background, including the pressed state',async({page})=>{
-  await start(page,'正文');await settings(page);const button=page.getByRole('navigation',{name:'主导航'}).getByRole('button',{name:'设置',exact:true});const box=(await button.boundingBox())!;await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();expect(await button.evaluate(element=>getComputedStyle(element).backgroundColor)).toBe('rgba(0, 0, 0, 0)');expect(await button.locator('span').evaluate(element=>getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');await page.mouse.up();await page.screenshot({path:path.join(work,'android-0114-settings-inline.png')});
+test('The vault picker ends with settings and the home has no bottom navigation',async({page})=>{
+  await start(page,'正文');await page.getByRole('button',{name:'返回笔记',exact:true}).click();
+  await expect(page.getByRole('navigation',{name:'主导航'})).toHaveCount(0);await expect(page.getByRole('button',{name:'设置',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'选择知识库',exact:true}).click();const dialog=page.getByRole('dialog',{name:'知识库',exact:true}),button=dialog.getByRole('button',{name:'设置',exact:true});
+  await expect(dialog.locator('.mobile-actions > button').last()).toHaveText('设置');await page.screenshot({path:path.join(work,'android-1033-vault.png')});const box=(await button.boundingBox())!;expect(box.height).toBeGreaterThanOrEqual(44);
+  await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();expect(await button.evaluate(element=>getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');await page.mouse.up();
+  await expect(page.locator('.mobile-settings')).toBeVisible();await expect(page.getByRole('switch',{name:'显示动态图标文字',exact:true})).toBeVisible();
+  await page.screenshot({path:path.join(work,'android-1033-settings.png')});await page.getByRole('button',{name:'返回笔记',exact:true}).click();await expect(page.getByLabel('搜索笔记')).toBeVisible();await page.screenshot({path:path.join(work,'android-1033-home.png')});
+  await openMobileSettings(page);await page.evaluate(()=>window.dispatchEvent(new Event('moyu-mobile-back')));await expect(page.getByLabel('搜索笔记')).toBeVisible();
 });
 
 test('List markers do not reserve 44px columns and source gutters leave room for text',async({page})=>{
@@ -36,7 +44,7 @@ test('List markers do not reserve 44px columns and source gutters leave room for
 test('Code blocks have compact numbered lines, correct copies and persistent optional wrapping in reading and editing',async({page})=>{
   const body='const text = "'+'abcdefghij'.repeat(18)+'";\n/* comment\n   continues */\nconsole.log(text);';await start(page,'```js\n'+body+'\n```');await page.setViewportSize({width:320,height:740});const pre=page.locator('.reading-view pre'),code=pre.locator('code');await expect(code.locator('.mobile-code-line')).toHaveCount(4);expect(await code.textContent()).toBe(body);expect(await code.locator('.mobile-code-line').first().evaluate(element=>parseFloat(getComputedStyle(element).gridTemplateColumns))).toBeLessThan(30);expect(await pre.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);expect((await code.locator('.mobile-code-source').first().boundingBox())!.height).toBeGreaterThan(40);
   await page.getByRole('button',{name:'复制代码',exact:true}).click();await expect.poll(()=>page.evaluate(()=>(window as any).__mobileState.clipboard)).toBe(body);const shell=page.locator('.code-block-shell');expect(await shell.evaluate(element=>getComputedStyle(element).paddingTop)).toBe('40px');await page.getByRole('tab',{name:'编辑',exact:true}).click();await expect(page.locator('.milkdown-code-block .cm-lineWrapping')).toHaveCount(1);await expect(page.locator('.milkdown-code-block .cm-lineNumbers')).toHaveCount(1);
-  await settings(page);await expect(page.getByLabel('代码块字号',{exact:true})).toBeVisible();await page.getByRole('switch',{name:'代码块自动换行'}).uncheck();await open(page);await expect(code).toBeVisible();expect(await pre.evaluate(element=>element.scrollWidth>element.clientWidth)).toBe(true);await page.reload();await expect(pre).toBeVisible();expect(await pre.evaluate(element=>element.scrollWidth>element.clientWidth)).toBe(true);await page.getByRole('tab',{name:'编辑',exact:true}).click();await expect(page.locator('.milkdown-code-block .cm-lineWrapping')).toHaveCount(0);expect(await page.evaluate(()=>(window as any).__mobileState.files['note.md'].content)).toBe('```js\n'+body+'\n```');
+  await settings(page);await expect(page.getByLabel('代码块字号',{exact:true})).toBeVisible();await page.getByRole('switch',{name:'代码块自动换行'}).uncheck();await open(page);await expect(page.getByRole('tab',{name:'编辑',exact:true})).toHaveAttribute('aria-selected','true');await page.getByRole('tab',{name:'阅读',exact:true}).click();await expect(code).toBeVisible();expect(await pre.evaluate(element=>element.scrollWidth>element.clientWidth)).toBe(true);await page.reload();await expect(pre).toBeVisible();expect(await pre.evaluate(element=>element.scrollWidth>element.clientWidth)).toBe(true);await page.getByRole('tab',{name:'编辑',exact:true}).click();await expect(page.locator('.milkdown-code-block .cm-lineWrapping')).toHaveCount(0);expect(await page.evaluate(()=>(window as any).__mobileState.files['note.md'].content)).toBe('```js\n'+body+'\n```');
 });
 
 test('Tabbed code uses the same narrow numbers and wrapping, without duplicate gutters; Mermaid has no copy header',async({page})=>{

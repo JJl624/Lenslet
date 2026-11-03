@@ -8,6 +8,8 @@
 
 ## 开发
 
+接手维护请阅读 [维护手册](docs/maintenance-handbook.md)。
+
 需要 Windows 或 Linux、Node.js 24 和 Git。
 
 ```sh

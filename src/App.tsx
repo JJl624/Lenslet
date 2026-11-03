@@ -149,6 +149,16 @@ type Dialog =
 
 export default function App() {
   const ws = useWorkspace();
+  const hasPendingDocumentEdits = Object.values(ws.documents).some(doc => doc.dirty || doc.saving);
+  const syncGate = useRef('');
+  useEffect(() => {
+    const root = ws.workspace?.root;
+    if (!api.desktop || !root) return;
+    const key = root + '\0' + String(hasPendingDocumentEdits);
+    if (syncGate.current === key) return;
+    syncGate.current = key;
+    void api.feature('webdav.auto-state', { root, blocked: hasPendingDocumentEdits }).catch(() => {});
+  }, [ws.workspace?.root, hasPendingDocumentEdits]);
   const [home, setHome] = useState(false);
   const [elementMenu, setElementMenu] = useState<
     | ElementMenuState
@@ -475,7 +485,19 @@ export default function App() {
     await flushAttachmentViews();
     editor.current?.flush();
     await drawingEditor.current?.flush();
-    if (ws.savePolicy === 'realtime' && !(await ws.saveAll())) throw new Error('请先处理文档保存错误或冲突。');
+    await ws.settleSaves();
+    const dirty = Object.values(ws.docs.current).filter(doc => doc.dirty || doc.saving).map(doc => doc.path);
+    if (!dirty.length) return true;
+    const choice = await api.feature<'save' | 'discard' | 'cancel'>('document.confirm-close', { paths: dirty, reason: 'sync' });
+    if (choice === 'cancel') return false;
+    if (choice === 'discard') {
+      for (const path of dirty) await ws.reload(path);
+      if (Object.values(ws.docs.current).some(doc => doc.dirty || doc.saving))
+        throw new Error('未保存修改尚未处理，已取消同步。');
+      return true;
+    }
+    if (!(await ws.saveAll())) throw new Error('请先处理文档保存错误或冲突。');
+    return true;
   };
   const closeDocuments = async (paths: string[]) => {
     searchNavigation.cancel();

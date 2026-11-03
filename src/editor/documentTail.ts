@@ -56,6 +56,10 @@ export const documentTail = $prose(() => new Plugin({
       if(!outer)return;
       const dom = view.nodeDOM(doc.content.size - last.nodeSize);
       if (!(dom instanceof HTMLElement)) return;
+      // A block attachment owns its visual footer and nearby spacing. A click
+      // in that blank area is too easy to mistake for a caret target; require
+      // an explicit Enter or paragraphAfter command to create the next line.
+      if(dom.matches('.block-attachment')||dom.querySelector('.block-attachment'))return;
       const rect = dom.getBoundingClientRect(), body = view.dom.getBoundingClientRect();
       if (event.clientY <= rect.bottom + 2 || event.clientX < body.left || event.clientX > body.right) return;
       handledTouch=event.type==='pointerup';

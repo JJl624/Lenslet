@@ -56,10 +56,11 @@ const image = '![中文 图|180](<中文 图.svg>)', drawing = '[中文 图|100]
 test('Mixed media use name links and preserve raw editing, size metadata, context menus and reading output', async () => {
   const {app,page,root,errors}=await fixture();
   try {
-    await open(page,'行内.md','左'+image+'中'+drawing+'右**加粗**\n\n'+image+'\n\n'+drawing+'\n\n后文');
+    await open(page,'行内.md','左'+image+'中'+drawing+'右**加粗** [普通链接](README.md)\n\n'+image+'\n\n'+drawing+'\n\n后文');
     const sources=page.locator('.ProseMirror > p').first().locator('.attachment-link'),overlays=page.locator('.attachment-overlay');
     await expect(sources).toHaveCount(2);await expect(overlays).toHaveCount(2);
     await expect(sources.first().locator('a')).toHaveText('中文 图');
+    const inlineImageLabel=sources.first().locator('.syntax-preview'),inlineLinks=page.locator('.ProseMirror > p').first().locator('.syntax-preview a');await expect(inlineImageLabel).not.toHaveClass(/attachment-image|attachment-file/);await expect(inlineImageLabel).toHaveCSS('display','inline');await expect(inlineImageLabel).toHaveCSS('vertical-align','baseline');await expect(inlineLinks).toHaveCount(3);const linkStyle=(link:typeof inlineLinks)=>link.evaluate(element=>{const style=getComputedStyle(element);return[style.color,style.textDecorationLine,style.borderBottomColor,style.borderBottomStyle,style.borderBottomWidth];});expect(await linkStyle(inlineLinks.first())).toEqual(await linkStyle(inlineLinks.last()));
     await expect(overlays.locator('img')).toHaveCSS('width','180px');await expect(overlays.locator('svg')).toHaveCSS('width','100px');
     await (await previewFor(page,sources.first())).click();await expect(sources.first().locator('.syntax-raw')).toHaveText(image);
     await page.keyboard.press('Home');await page.keyboard.insertText('前');await page.keyboard.press('ArrowRight');await page.keyboard.press('End');await page.keyboard.insertText('后');
@@ -72,7 +73,7 @@ test('Mixed media use name links and preserve raw editing, size metadata, contex
     await overlays.nth(1).click({button:'right'});await expect(page.getByRole('menuitem',{name:'编辑绘图',exact:true})).toBeVisible();await page.keyboard.press('Escape');await save(app);
     await expect.poll(()=>fs.readFile(path.join(root,'行内.md'),'utf8')).toContain('![中文 图|90]');
     await page.getByRole('button',{name:'源码',exact:true}).click();await expect(page.locator('.source-editor .cm-content')).toContainText('左前'+image+'后中');
-    await page.getByRole('button',{name:'阅读',exact:true}).click();await expect(page.locator('.reading-view p').first().locator('a')).toHaveCount(2);await expect(page.locator('.reading-view p').first().locator('img,svg')).toHaveCount(0);
+    await page.getByRole('button',{name:'阅读',exact:true}).click();await expect(page.locator('.reading-view p').first().locator('a')).toHaveCount(3);await expect(page.locator('.reading-view p').first().locator('img,svg')).toHaveCount(0);
     await expect(page.locator('.reading-view img')).toHaveCSS('width','90px');await expect(page.locator('.reading-view .resource-preview svg')).toHaveCSS('width','100px');expect(errors).toEqual([]);
   }finally{await app.evaluate(({app})=>app.exit(0)).catch(()=>{});}
 });

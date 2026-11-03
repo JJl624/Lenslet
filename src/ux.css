@@ -74,9 +74,13 @@
 .app .editor-host .milkdown .ProseMirror .milkdown-code-block.selected { background:var(--surface);outline:1px solid color-mix(in srgb,var(--accent) 35%,transparent); }
 
 .app .editor-host .milkdown .ProseMirror .milkdown-code-block.selected:has(.cm-focused) {outline:none;background:var(--surface);}
-.code-resize {height:8px;cursor:ns-resize;margin:4px -6px -6px;position:relative;touch-action:none;user-select:none;}
-.code-resize::after {content:'';display:block;width:38px;height:2px;background:var(--border-strong);border-radius:1px;position:absolute;left:calc(50% - 19px);top:3px;}
-.code-resize:hover::after {background:var(--accent);}
+.code-resize {height:8px;cursor:ns-resize;margin:4px -6px -6px;position:relative;touch-action:none;user-select:none;opacity:0;pointer-events:none;}
+.milkdown-code-block:hover .code-resize,.html-note-window:hover > .code-resize,.code-block-shell:hover > .code-resize,.code-resize:is(.resize-ready,:focus-visible) {opacity:1;pointer-events:auto;}
+@media (hover:none),(pointer:coarse) {.code-resize {opacity:1;pointer-events:auto;}}
+.code-resize::after,.attachment-viewport-resize::before {content:'';display:block;width:44px;height:4px;background:var(--border-strong);border-radius:4px;position:absolute;left:calc(50% - 22px);top:50%;transform:translateY(-50%);}
+.code-resize:is(:hover,.resize-ready,:focus-visible)::after,.attachment-viewport-resize:is(:hover,.resize-ready,:focus-visible)::before {background:var(--accent);}
+.code-resize:focus-visible,.attachment-viewport-resize:focus-visible {outline:1px solid var(--accent);outline-offset:-2px;}
+.code-resize:is(.resize-ready,:focus-visible),.attachment-viewport-resize:is(.resize-ready,:focus-visible) {background:var(--selected);box-shadow:inset 0 -2px var(--accent);}
 .app .tabbed-code .tabs-bar > button:active,.app .tabbed-code .tabs-bar > button[aria-pressed=true] {background:var(--selected,var(--hover));color:var(--accent);box-shadow:inset 0 0 0 1px var(--border-strong);}
 .milkdown-code-block .cm-editor .cm-scroller {overflow:auto;}
 .resource-preview {display:inline-block;max-width:100%;vertical-align:middle;cursor:text;color:var(--text);}
@@ -103,7 +107,6 @@
 .moyu-heading-marker.hidden-marker {display:none;}
 .attachment-image {display:inline-block;max-width:100%;vertical-align:middle;}
 .attachment-image img {display:block;max-width:100%;height:auto;}
-.attachment-file {color:var(--accent);text-decoration:underline;text-underline-offset:3px;}
 .inline-math {display:inline;}
 .inline-math .math-raw {background:transparent;border-radius:0;font:inherit;}
 .inline-math.editing .math-raw {display:inline;}

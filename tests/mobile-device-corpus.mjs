@@ -7,7 +7,7 @@ import {guideCorpus} from './helpers/guide-corpus.ts';
 
 const sdk=process.env.ANDROID_HOME||process.env.ANDROID_SDK_ROOT;
 if(!sdk)throw Error('Set ANDROID_HOME.');
-const serial=process.env.ANDROID_SERIAL||'emulator-5580',appPackage='app.moyu.notes.debug';
+const serial=process.env.ANDROID_SERIAL||'emulator-5580',appPackage='com.lrj.moyu.webview.debug';
 if(!serial.startsWith('emulator-'))throw Error('Use a test emulator.');
 const adb=path.join(sdk,'platform-tools',process.platform==='win32'?'adb.exe':'adb');
 const command=(...args)=>execFileSync(adb,['-s',serial,...args],{encoding:'utf8',windowsHide:true}).trim();

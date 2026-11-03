@@ -24,7 +24,8 @@ export function createScoreToolbar(host:HTMLElement,signal:AbortSignal){
   const viewport=document.createElement('div');viewport.className='attachment-score-viewport';viewport.dataset.attachmentControl='true';viewport.tabIndex=0;viewport.setAttribute('aria-label','乐谱视图');
   const sheet=document.createElement('div');sheet.className='attachment-score-sheet';viewport.append(sheet);
   const play=button('播放乐谱','play'),stop=button('停止播放','stop'),loop=button('循环播放','repeat'),metronome=button('节拍器','metronome');play.className='score-play';play.disabled=true;stop.disabled=true;
-  for(const control of [loop,metronome]){control.setAttribute('aria-pressed','false');control.append(document.createTextNode(control.title));}
+  for(const control of [loop,metronome])control.setAttribute('aria-pressed','false');
+  const playback=document.createElement('div');playback.className='score-playback-actions';playback.setAttribute('role','group');playback.setAttribute('aria-label','播放控制');playback.append(play,loop,metronome,stop);
   const speed=select('播放速度',[['0.5','0.5×'],['0.75','0.75×'],['1','1×'],['1.25','1.25×'],['1.5','1.5×'],['2','2×']],'1');
   const zoom=select('乐谱缩放',[['0.5','50%'],['0.7','70%'],['0.85','85%'],['1','100%'],['1.25','125%'],['1.5','150%']],'0.85');
   const layout=select('乐谱布局',[['page','分页'],['horizontal','横向']],'page');
@@ -35,10 +36,8 @@ export function createScoreToolbar(host:HTMLElement,signal:AbortSignal){
   const status=document.createElement('div');status.className='score-player-status';status.setAttribute('role','status');status.dataset.attachmentControl='true';
   const more=button('播放选项','more'),options=document.createElement('div');options.className='score-options attachment-controls';options.popover='auto';options.dataset.attachmentControl='true';options.setAttribute('role','dialog');options.setAttribute('aria-label','播放选项');
   more.popoverTargetElement=options;more.setAttribute('aria-haspopup','dialog');more.setAttribute('aria-expanded','false');
-  const toggles=document.createElement('div');toggles.className='score-option-toggles';toggles.append(loop,metronome);
   const display=document.createElement('div');display.className='score-display-options';const zoomRow=optionRow('缩放',zoom),layoutRow=optionRow('布局',layout);
-  stop.className='score-stop';stop.append(document.createTextNode('停止播放'));
-  options.append(display,optionRow('音量',volume),optionRow('播放速度',speed),toggles,stop);
+  options.append(display,optionRow('音量',volume),optionRow('播放速度',speed));
   const position=()=>{
     if(!options.matches(':popover-open'))return;
     const anchor=more.getBoundingClientRect(),width=options.offsetWidth,height=options.offsetHeight;
@@ -56,7 +55,7 @@ export function createScoreToolbar(host:HTMLElement,signal:AbortSignal){
     else position();
   },{capture:true,signal});
   signal.addEventListener('abort',()=>{if(options.matches(':popover-open'))options.hidePopover();},{once:true});
-  toolbar.append(play,tracks,seek,time,zoom,layout,more);host.replaceChildren(toolbar,status,viewport,options);
+  toolbar.append(playback,tracks,seek,time,zoom,layout,more);host.replaceChildren(toolbar,status,viewport,options);
   let compact:boolean|undefined;const adapt=()=>{const next=host.clientWidth<600;if(compact===next)return;compact=next;host.dataset.compact=String(next);if(next){zoomRow.append(zoom);layoutRow.append(layout);display.append(zoomRow,layoutRow);}else{display.replaceChildren();toolbar.insertBefore(zoom,more);toolbar.insertBefore(layout,more);}position();};
   const observer=new ResizeObserver(adapt);observer.observe(host);adapt();signal.addEventListener('abort',()=>observer.disconnect(),{once:true});
   return {play,stop,loop,metronome,speed,zoom,layout,tracks,seek,volume,time,status,viewport,sheet};

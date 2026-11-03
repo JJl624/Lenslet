@@ -20,6 +20,6 @@ export function numberMobileCode(code:HTMLElement){
     line.className='mobile-code-line';line.dataset.line=String(index+1);source.className='mobile-code-source';source.append(content);line.append(source);fragment.append(line);
     if(index<lines.length-1||text.endsWith('\n'))fragment.append(document.createTextNode('\n'));
   });
-  code.classList.add('mobile-numbered-code');code.style.setProperty('--mobile-number-width',`${String(lines.length).length+.8}ch`);
+  code.classList.add('mobile-numbered-code');code.style.setProperty('--mobile-number-width',`${String(lines.length).length+1.2}ch`);
   code.replaceChildren(fragment);numbered.set(code,text);
 }

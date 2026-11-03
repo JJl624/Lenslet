@@ -22,6 +22,7 @@ final class VaultStore {
     private final ContentResolver resolver;
     private Uri tree;
     private final LinkedHashMap<String,String> draftHashes=new LinkedHashMap<>();
+    private final SyncHashCache syncHashes=new SyncHashCache();
     VaultStore(Context context) throws Exception {
         this.context=context;resolver=context.getContentResolver();home=new File(context.getFilesDir(),"vault");
         if(!home.isDirectory()&&!home.mkdirs())throw new IOException("无法创建知识库。");
@@ -30,11 +31,20 @@ final class VaultStore {
         if(!new File(home,"开始使用.md").exists()) {
             try(InputStream source=context.getAssets().open("guides/开始使用.md")){writePrivate(new File(home,"开始使用.md"),readBytes(source));}
         }
+        if(!context.getSharedPreferences("workspace",0).getBoolean("tree-examples-v1",false)){
+            seedExamples("examples/数据结构",new File(home,"数据结构"));
+            context.getSharedPreferences("workspace",0).edit().putBoolean("tree-examples-v1",true).commit();
+        }
+    }
+    private void seedExamples(String asset,File target) throws IOException {
+        String[] children=context.getAssets().list(asset);
+        if(children!=null&&children.length>0){if(!target.isDirectory()&&!target.mkdirs())throw new IOException("无法创建示例目录。");for(String child:children)seedExamples(asset+"/"+child,new File(target,child));}
+        else if(!target.exists())try(InputStream source=context.getAssets().open(asset)){writePrivate(target,readBytes(source));}
     }
     synchronized String root(){return tree==null?"internal":tree.toString();}
     synchronized String location(String path) throws Exception {return tree==null?privateFile(path).getCanonicalPath():uri(path,false).toString();}
     synchronized void select(Uri uri) throws Exception {
-        Uri previous=tree;tree=uri;
+        Uri previous=tree;tree=uri;syncHashes.clear();
         try{list();}catch(Exception error){tree=previous;throw error;}
         context.getSharedPreferences("workspace",0).edit().putString("tree",uri==null?"":uri.toString()).commit();
     }
@@ -90,12 +100,25 @@ final class VaultStore {
         return new JSONObject().put("root",root()).put("name",name).put("tree",scan("",0,new int[]{0}));
     }
     synchronized InputStream open(String path) throws Exception {
-        if(tree==null)return new AtomicFile(privateFile(path)).openRead();
+        if(tree==null)return openPrivate(privateFile(path));
         InputStream input=resolver.openInputStream(uri(path,false));if(input==null)throw new IOException("无法打开文件。");return input;
+    }
+    synchronized long byteLength(String path) throws Exception {
+        if(tree==null)return privateFile(path).length();
+        try(Cursor cursor=resolver.query(uri(path,false),new String[]{DocumentsContract.Document.COLUMN_SIZE},null,null,null)){if(cursor!=null&&cursor.moveToFirst()&&!cursor.isNull(0))return cursor.getLong(0);}
+        return -1;
     }
     static byte[] readBytes(InputStream input) throws IOException {ByteArrayOutputStream output=new ByteArrayOutputStream();byte[] buffer=new byte[32768];int count;while((count=input.read(buffer))!=-1)output.write(buffer,0,count);return output.toByteArray();}
     synchronized byte[] bytes(String path) throws Exception {try(InputStream input=open(path)){return readBytes(input);}}
-    synchronized String hash(String path) throws Exception {try(InputStream input=open(path)){java.security.MessageDigest digest=java.security.MessageDigest.getInstance("SHA-256");byte[] buffer=new byte[32768];int count;while((count=input.read(buffer))!=-1)digest.update(buffer,0,count);StringBuilder result=new StringBuilder();for(byte value:digest.digest())result.append(String.format("%02x",value));return result.toString();}}
+    synchronized String hash(String path) throws Exception {return hash(path,"");}
+    private String hash(String path,String job) throws Exception {try(InputStream input=open(path)){java.security.MessageDigest digest=java.security.MessageDigest.getInstance("SHA-256");byte[] buffer=new byte[32768];int count;while((count=input.read(buffer))!=-1){if(!job.isEmpty())WebDavTransport.check(job+"-hash");digest.update(buffer,0,count);}StringBuilder result=new StringBuilder();for(byte value:digest.digest())result.append(String.format("%02x",value));return result.toString();}}
+    synchronized String syncHash(String path,String job) throws Exception {
+        VaultPaths.checked(path);
+        if(!job.isEmpty())WebDavTransport.check(job+"-hash");
+        // SAF timestamps may be missing or coarse. Such providers always hash
+        // the contents; private storage can use inode and nanosecond ctime.
+        return syncHashes.get(path,()->tree==null?SyncHashCache.stamp(privateFile(path)):null,()->hash(path,job));
+    }
     synchronized JSONObject read(String path) throws Exception {
         byte[] bytes=bytes(path);long modified=0;
         if(tree==null)modified=privateFile(path).lastModified();
@@ -103,6 +126,12 @@ final class VaultStore {
         return new JSONObject().put("path",path).put("content",new String(bytes,StandardCharsets.UTF_8)).put("version",VaultPaths.hash(bytes)).put("updated",modified);
     }
     static void writePrivate(File file,byte[] bytes) throws IOException {
+        synchronized(PrivateFileLocks.forFile(file)){writePrivateLocked(file,bytes);}
+    }
+    static InputStream openPrivate(File file) throws IOException {
+        synchronized(PrivateFileLocks.forFile(file)){return new AtomicFile(file).openRead();}
+    }
+    private static void writePrivateLocked(File file,byte[] bytes) throws IOException {
         File parent=file.getParentFile();if(!parent.isDirectory()&&!parent.mkdirs())throw new IOException("无法创建文件夹。");
         AtomicFile target=new AtomicFile(file);FileOutputStream output=null;
         try{output=target.startWrite();output.write(bytes);target.finishWrite(output);}catch(IOException error){if(output!=null)target.failWrite(output);throw error;}
@@ -115,6 +144,7 @@ final class VaultStore {
         }return created;
     }
     synchronized void write(String path,byte[] bytes,boolean create) throws Exception {
+        syncHashes.invalidate(path);
         VaultPaths.checked(path);
         if(tree==null){File file=privateFile(path);if(!create&&!file.isFile())throw new FileNotFoundException(path);writePrivate(file,bytes);return;}
         Uri target;
@@ -145,6 +175,7 @@ final class VaultStore {
         write(path,content.getBytes(StandardCharsets.UTF_8),true);return read(path);
     }
     synchronized void move(String from,String to) throws Exception {
+        syncHashes.invalidate(from);syncHashes.invalidate(to);
         VaultPaths.checked(from);VaultPaths.checked(to);
         if(from.equals(to))return;if(to.startsWith(from+"/"))throw new IOException("不能移入自身的子文件夹。");
         if(exists(to))throw new IOException("目标名称已经存在。");
@@ -158,6 +189,7 @@ final class VaultStore {
         history.move(root(),from,to);
     }
     synchronized void delete(String path) throws Exception {
+        syncHashes.invalidate(path);
         if(tree==null)deletePrivate(privateFile(path));else if(!DocumentsContract.deleteDocument(resolver,uri(path,false)))throw new IOException("无法删除文件。");
     }
     static void deletePrivate(File file) throws IOException {

@@ -1,6 +1,7 @@
 import {Check,ChevronDown} from 'lucide-react';
 import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
+import {registerControlOverlay} from '../controlOverlay';
 
 export function MobileSelect({label,value,options,change,disabled=false,commit,className='mobile-setting-row'}:{label:string;value:string;options:readonly {value:string;label:string}[];change(value:string):void;disabled?:boolean;commit?():void;className?:string}){
   const id=useId(),root=useRef<HTMLDivElement>(null),menu=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null),[open,setOpen]=useState(false),[position,setPosition]=useState({top:0,left:0,width:0,maxHeight:320});
@@ -14,9 +15,9 @@ export function MobileSelect({label,value,options,change,disabled=false,commit,c
     };
     place();window.addEventListener('resize',place);
     const scroll=(event:Event)=>{if(event.target instanceof Node&&menu.current?.contains(event.target))return;place();};
-    const back=(event:Event)=>{event.stopImmediatePropagation();setOpen(false);trigger.current?.focus({preventScroll:true});};
-    window.addEventListener('scroll',scroll,true);window.addEventListener('moyu-mobile-back',back,true);
-    return()=>{window.removeEventListener('resize',place);window.removeEventListener('scroll',scroll,true);window.removeEventListener('moyu-mobile-back',back,true);};
+    const release=registerControlOverlay(()=>{setOpen(false);trigger.current?.focus({preventScroll:true});});
+    window.addEventListener('scroll',scroll,true);
+    return()=>{release();window.removeEventListener('resize',place);window.removeEventListener('scroll',scroll,true);};
   },[open,options.length]);
   // Collapse after a pointer click finishes: doing it on pointerdown moves the
   // following setting away from the finger before it can receive its click.

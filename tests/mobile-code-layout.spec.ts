@@ -1,11 +1,12 @@
-import {test,expect,type Page,type Locator} from '@playwright/test';
+import {openMobileSettings} from './helpers/mobile-controls.mjs';
+import {test,expect,type Page,type Locator} from './helpers/mobile-test';
 import path from 'node:path';
 import {mockAndroid} from './helpers/mobile-native-mock';
 const content='正文 `inline`\n\n```js\nconsole.log("'+ '长行'.repeat(70)+'");\n```\n\n```tabs {id=0001}\n:::js 第一段\nconsole.log(1);\n:::py 第二段\nprint(2)\n```\n';
 const size=(node:Locator)=>node.evaluate(element=>getComputedStyle(element).fontSize);
 async function start(page:Page){await mockAndroid(page,{files:{'note.md':{content}}});await page.goto('/mobile.html');await expect(page.getByRole('tab',{name:'阅读',exact:true})).toBeVisible({timeout:30000});}
-async function settings(page:Page){await page.getByRole('button',{name:'返回笔记',exact:true}).tap();await page.getByRole('button',{name:'设置',exact:true}).tap();}
-async function open(page:Page){await page.getByRole('button',{name:'笔记',exact:true}).tap();await page.locator('[data-path="note.md"] .mobile-file-open').tap();}
+async function settings(page:Page){await page.getByRole('button',{name:'返回笔记',exact:true}).tap();await openMobileSettings(page);}
+async function open(page:Page){await page.getByRole('button',{name:'返回笔记',exact:true}).tap();await page.locator('[data-path="note.md"] .mobile-file-open').tap();}
 
 test('Code size is independent, persists and applies to ordinary and tabbed blocks in reading and editing',async({page})=>{
   await start(page);const read=page.locator('.reading-view');expect(await size(read.locator('pre code').first())).toBe('14px');

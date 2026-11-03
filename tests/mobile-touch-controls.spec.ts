@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/mobile-test';
 import {mockAndroid} from './helpers/mobile-native-mock';
 test('Code height ignores a scrolling swipe, arms after one second, persists a deliberate resize and double tap resets',async({page,context})=>{
   await mockAndroid(page,{files:{'note.md':{content:'```js\n'+Array.from({length:20},(_,i)=>'console.log('+i+');').join('\n')+'\n```\n\n'+Array.from({length:30},()=> '正文\n').join('\n')}}});await page.goto('/mobile.html');await page.getByRole('tab',{name:'编辑',exact:true}).click();await expect(page.locator('.editor-host')).not.toHaveAttribute('data-editor-pending','true');

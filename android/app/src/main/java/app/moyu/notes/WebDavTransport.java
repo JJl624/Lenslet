@@ -19,7 +19,7 @@ final class WebDavTransport {
     WebDavTransport(){this(shared);}
     WebDavTransport(OkHttpClient client){this.client=client;}
     static void cancel(String job){if(job.isEmpty())return;cancelled.put(job,System.currentTimeMillis());for(Map.Entry<String,Call> entry:active.entrySet())if(entry.getKey().startsWith(job+"-"))entry.getValue().cancel();}
-    private static void check(String id) throws IOException {long now=System.currentTimeMillis();for(Map.Entry<String,Long> entry:cancelled.entrySet()){if(now-entry.getValue()>120000){cancelled.remove(entry.getKey(),entry.getValue());continue;}if(id.startsWith(entry.getKey()+"-"))throw new IOException("已取消同步。");}}
+    static void check(String id) throws IOException {long now=System.currentTimeMillis();for(Map.Entry<String,Long> entry:cancelled.entrySet()){if(now-entry.getValue()>120000){cancelled.remove(entry.getKey(),entry.getValue());continue;}if(id.startsWith(entry.getKey()+"-"))throw new IOException("已取消同步。");}}
     JSONObject request(JSONObject input) throws Exception {
         URL url=new URL(input.getString("url"));
         if(!"https".equals(url.getProtocol())||url.getHost().isEmpty()||url.getUserInfo()!=null)throw new IOException("WebDAV 地址需使用 HTTPS，用户名和密码请分别填写。");

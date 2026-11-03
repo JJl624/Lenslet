@@ -1,4 +1,5 @@
-import {test,expect} from '@playwright/test';
+import {openMobileSettings} from './helpers/mobile-controls.mjs';
+import {test,expect} from './helpers/mobile-test';
 import path from 'node:path';
 import {mockAndroid} from './helpers/mobile-native-mock';
 const work=path.resolve(import.meta.dirname,'../../../work');
@@ -7,7 +8,7 @@ const markdown='# 手机上的阅读\n\n'+ 'https://example.test/'.repeat(14)+'\
 async function start(page:any){await mockAndroid(page,{files:{'phone.md':{content:markdown}}});await page.goto('/mobile.html');await expect(page.locator('.reading-view h1')).toHaveText('手机上的阅读');}
 
 test('Narrow reading contains wide code and tables, keeps nested content usable and opens folded quotes by touch',async({page})=>{
-  await start(page);await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByRole('switch',{name:'代码块自动换行',exact:true}).uncheck();await page.getByRole('button',{name:'笔记',exact:true}).click();await page.locator('[data-path="phone.md"] .mobile-file-open').click();await expect(page.locator('.reading-view')).toBeVisible();
+  await start(page);await page.getByRole('button',{name:'返回笔记',exact:true}).click();await openMobileSettings(page);await page.getByRole('switch',{name:'代码块自动换行',exact:true}).uncheck();await page.getByRole('button',{name:'返回笔记',exact:true}).click();await page.locator('[data-path="phone.md"] .mobile-file-open').click();await expect(page.locator('.reading-view')).toBeVisible();
   for(const width of [320,393,720]){
     await page.setViewportSize({width,height:800});
     const document=page.locator('.mobile-document');expect(await document.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
