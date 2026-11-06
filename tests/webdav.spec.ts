@@ -167,3 +167,34 @@ async function assertAbsent(file: string) {
     })
   ).toBe(false);
 }
+
+test('An automatic sync review checks later unsaved edits and renews approval after saving',async()=>{
+  test.setTimeout(90000);
+  const base=path.resolve(project,'../../work/e2e');await fs.mkdir(base,{recursive:true});
+  const data=await fs.mkdtemp(path.join(base,'webdav-review-'));
+  await fs.writeFile(path.join(data,'settings.json'),JSON.stringify({version:1,values:{'moyu-save-policy':'manual'}}));
+  const server=await davServer(),env={...process.env,MOYU_USER_DATA:data,MOYU_TEST:'1',MOYU_DEMO:'1',MOYU_TEST_OFFSCREEN:'1',MOYU_TEST_SKIP_BUNDLED:'1'};
+  delete env.ELECTRON_RUN_AS_NODE;
+  const app=await electron.launch({...process.env.MOYU_E2E_EXECUTABLE?{executablePath:process.env.MOYU_E2E_EXECUTABLE,args:[]}:{args:[project]},env});
+  try{
+    const page=await app.firstWindow();await expect(page.locator('.ProseMirror')).toBeVisible();
+    await app.evaluate(({dialog})=>{let count=0;dialog.showMessageBox=async()=>({response:count++===0?2:0});});
+    await page.evaluate(async url=>{
+      await window.moyu!.create('待确认.md','file','正文');
+      await window.moyu!.feature('connections.save',{kind:'webdav',url,directory:'/Review',username:'user',password:'secret'});
+    },server.url);
+    await page.locator('.tree-item[title="待确认.md"]').dblclick();
+    const pending:any=await page.evaluate(()=>window.moyu!.feature('webdav.sync',{automatic:true}));
+    expect(pending.data.needsConfirmation).toBe(true);
+    await page.locator('.ProseMirror p').last().click();await page.keyboard.press('End');await page.keyboard.insertText('新增修改');
+    await page.getByRole('button',{name:'WebDAV 同步',exact:true}).click();
+    await page.getByRole('button',{name:'查看待确认更改',exact:true}).click();
+    const start=page.getByRole('button',{name:'开始同步',exact:true});
+    await start.click();await expect(start).toBeEnabled();expect(server.files.has('/Review/待确认.md')).toBe(false);
+    await start.click();await expect(start).toBeEnabled();
+    await expect.poll(()=>fs.readFile(path.join(data,'示例知识库/待确认.md'),'utf8')).toContain('新增修改');
+    expect(server.files.has('/Review/待确认.md')).toBe(false);
+    await start.click();await expect(start).toHaveCount(0);
+    expect(server.files.get('/Review/待确认.md').toString()).toContain('新增修改');
+  }finally{await app.evaluate(({app})=>app.exit(0)).catch(()=>{});await server.close();}
+});

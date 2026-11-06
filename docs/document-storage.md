@@ -22,6 +22,10 @@
 
 ## 本机状态
 
+- 安卓文本读取严格校验 UTF-8 并拒绝 NUL，非法编码不能作为替代字符进入可编辑正文。
+- 安卓 SAF 外部目录的覆盖写入先在应用私有 `saf-recovery` 保存原始字节和位置记录，再写入并逐字节校验；失败时恢复原内容。恢复失败保留备份并给出路径。SAF 提供者不保证原子替换，进程被强制终止时仍需利用保留备份恢复，不能宣称与私有目录的 AtomicFile 有相同保证。
+- 恢复草稿的 `CoalescedWrites.flush()` 在调用时立即加入同一条串行队列；不能先等待旧队列后再占位，否则重叠生命周期排空可能并行写入。
+
 桌面历史继续存放知识库统一的 `.data/history.sqlite`；同步基线、索引、历史和恢复事务留在 `.data`。安卓历史沿用应用私有存储。缩略图和临时运行结果沿用内存或应用缓存，不新增文档附属文件。同步只传正文、附件、代码数据、文档记录和明确钉住的结果；`.data` 不上传。
 
 验证：`tests/attachment-views.test.cjs`、`tests/attachment-view-ux.spec.ts`、`tests/document-storage.test.cjs`、`tests/disk-writes.test.cjs`、`tests/document-files.test.cjs`、`tests/sync-io-performance.test.cjs`、`tests/v183-features.spec.ts` 与 `tests/mobile-html-preview.spec.ts`。

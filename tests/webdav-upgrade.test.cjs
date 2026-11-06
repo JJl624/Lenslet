@@ -112,7 +112,7 @@ test('Conflict keep-both preserves exact bytes on both sides without resolving o
 
 test('A stale conflict decision and a changed file after a review do not overwrite content', async t => {
   const {vault,server,sync}=await fixture(t);await vault.create('a.md','file','base');await sync.sync();await edit(vault,'a.md','local');server.files.set('/Moyu/a.md',Buffer.from('remote'));
-  const c=(await sync.sync()).conflicts[0];server.files.set('/Moyu/a.md',Buffer.from('new remote'));await assert.rejects(sync.resolve({...c,choice:'local'}),/冲突版本/);
+  const c=(await sync.sync()).conflicts[0];server.files.set('/Moyu/a.md',Buffer.from('new remote'));await assert.rejects(sync.resolve({...c,choice:'local'}),error=>error.code==='CONFLICT'&&error.current.remoteText==='new remote');
   await sync.resolve({...((await sync.sync()).conflicts[0]),choice:'remote'});
   await edit(vault,'a.md','reviewed');const plan=await sync.preview();await edit(vault,'a.md','new local');await assert.rejects(sync.sync({token:plan.token}),/本地文件发生变化/);assert.equal(server.files.get('/Moyu/a.md').toString(),'new remote');
 });

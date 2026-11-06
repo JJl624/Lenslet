@@ -7,7 +7,7 @@ import { WebDAVCloud, fileSize } from './WebDAVCloud';
 import { type SyncConflict, type SyncPreview, type SyncStatus, type WebDAVConnection } from './webdavTypes';
 import './webdav.css';
 export function WebDAVPanel({ root, beforeAction, refresh, openSettings, unsaved }: {
-  root: string; beforeAction(): Promise<boolean>; refresh(): Promise<void>; openSettings(): void; unsaved: boolean;
+  root: string; beforeAction(): Promise<false | 'ready' | 'changed'>; refresh(): Promise<void>; openSettings(): void; unsaved: boolean;
 }) {
   const [state, setState] = useState<SyncStatus>({ lastSync: 0, conflicts: [] });
   const [busy, setBusy] = useState<false | 'sync' | 'directory'>(false), [error, setError] = useState(''), [message, setMessage] = useState('');
@@ -33,6 +33,11 @@ export function WebDAVPanel({ root, beforeAction, refresh, openSettings, unsaved
     try { await action(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   };
   const apply = async (token?: string) => {
+    const prepared=await beforeAction();
+    if(!prepared)return;
+    if(prepared==='changed'){
+      setPreview(await api.feature<SyncPreview>('webdav.preview'));setLimit(100);return;
+    }
     const result = await api.feature<SyncStatus & SyncPreview>('webdav.sync', { token });
     if (result.needsConfirmation) { setPreview(result); setLimit(100); return; }
     setPreview(null); await load(); await refresh();

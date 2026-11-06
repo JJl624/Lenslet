@@ -487,17 +487,17 @@ export default function App() {
     await drawingEditor.current?.flush();
     await ws.settleSaves();
     const dirty = Object.values(ws.docs.current).filter(doc => doc.dirty || doc.saving).map(doc => doc.path);
-    if (!dirty.length) return true;
+    if (!dirty.length) return 'ready' as const;
     const choice = await api.feature<'save' | 'discard' | 'cancel'>('document.confirm-close', { paths: dirty, reason: 'sync' });
     if (choice === 'cancel') return false;
     if (choice === 'discard') {
       for (const path of dirty) await ws.reload(path);
       if (Object.values(ws.docs.current).some(doc => doc.dirty || doc.saving))
         throw new Error('未保存修改尚未处理，已取消同步。');
-      return true;
+      return 'changed' as const;
     }
     if (!(await ws.saveAll())) throw new Error('请先处理文档保存错误或冲突。');
-    return true;
+    return 'changed' as const;
   };
   const closeDocuments = async (paths: string[]) => {
     searchNavigation.cancel();

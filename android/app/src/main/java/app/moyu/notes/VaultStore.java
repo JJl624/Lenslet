@@ -123,7 +123,7 @@ final class VaultStore {
         byte[] bytes=bytes(path);long modified=0;
         if(tree==null)modified=privateFile(path).lastModified();
         else try(Cursor cursor=resolver.query(uri(path,false),new String[]{DocumentsContract.Document.COLUMN_LAST_MODIFIED},null,null,null)){if(cursor!=null&&cursor.moveToFirst())modified=cursor.getLong(0);}
-        return new JSONObject().put("path",path).put("content",new String(bytes,StandardCharsets.UTF_8)).put("version",VaultPaths.hash(bytes)).put("updated",modified);
+        return new JSONObject().put("path",path).put("content",DocumentBytes.text(bytes)).put("version",VaultPaths.hash(bytes)).put("updated",modified);
     }
     static void writePrivate(File file,byte[] bytes) throws IOException {
         synchronized(PrivateFileLocks.forFile(file)){writePrivateLocked(file,bytes);}
@@ -147,11 +147,38 @@ final class VaultStore {
         syncHashes.invalidate(path);
         VaultPaths.checked(path);
         if(tree==null){File file=privateFile(path);if(!create&&!file.isFile())throw new FileNotFoundException(path);writePrivate(file,bytes);return;}
-        Uri target;
-        if(exists(path))target=uri(path,false);
+        Uri target;boolean existed=exists(path);
+        if(existed)target=uri(path,false);
         else{if(!create)throw new FileNotFoundException(path);target=createDocument(uri(VaultPaths.parent(path),true),mime(path),VaultPaths.name(path));}
         if(target==null)throw new IOException("无法创建文件。");
-        try(OutputStream output=resolver.openOutputStream(target,"wt")){if(output==null)throw new IOException("无法保存文件。");output.write(bytes);output.flush();}
+        final Uri destination=target;
+        File backup=!existed?null:new File(context.getFilesDir(),"saf-recovery/"+UUID.randomUUID()+".bin");
+        File metadata=backup==null?null:new File(backup+".json");
+        if(backup!=null){
+            if(!backup.getParentFile().isDirectory()&&!backup.getParentFile().mkdirs())throw new IOException("无法创建恢复备份。");
+            AtomicFile staged=new AtomicFile(backup);FileOutputStream output=staged.startWrite();
+            try(InputStream input=open(path)){copyBytes(input,output);staged.finishWrite(output);}
+            catch(Exception failure){staged.failWrite(output);throw failure;}
+            writePrivate(metadata,new JSONObject().put("root",root()).put("path",path).put("uri",target.toString()).toString().getBytes(StandardCharsets.UTF_8));
+        }
+        boolean keepBackup=false;
+        try {
+            DocumentBytes.replace(new DocumentBytes.Target(){
+                public InputStream read() throws Exception {InputStream input=resolver.openInputStream(destination);if(input==null)throw new IOException("无法校验文件。");return input;}
+                public void write(InputStream value) throws Exception {try(OutputStream output=resolver.openOutputStream(destination,"wt")){if(output==null)throw new IOException("无法保存文件。");copyBytes(value,output);output.flush();}}
+                public void remove() throws Exception {if(!DocumentsContract.deleteDocument(resolver,destination))throw new IOException("无法移除未完成的文件。");}
+            },bytes,backup);
+        } catch(DocumentBytes.RecoveryFailure failure){
+            keepBackup=true;
+            throw new IOException(failure.getMessage()+(backup==null?"文件："+path:"原始文件备份："+backup.getAbsolutePath()),failure);
+        } finally {
+            if(!keepBackup&&backup!=null){
+                if(!metadata.delete()||!backup.delete())android.util.Log.w("Moyu","已完成写入，恢复备份未清理："+backup.getAbsolutePath());
+            }
+        }
+    }
+    private static void copyBytes(InputStream input,OutputStream output)throws IOException {
+        byte[] buffer=new byte[32768];int count;while((count=input.read(buffer))!=-1)output.write(buffer,0,count);
     }
     synchronized JSONObject save(String path,String content,String expected) throws Exception {
         JSONObject before=read(path);

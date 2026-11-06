@@ -11,12 +11,11 @@ export class CoalescedWrites {
     job.timer=setTimeout(()=>{void this.flush().catch(this.report);},Math.max(0,Math.min(this.delay,this.maxWait-(Date.now()-job.first))));
     return new Promise((resolve,reject)=>job.waiters.push({resolve,reject}));
   }
-  async flush() {
-    await this.tail;
-    const jobs=[...this.pending.values()];this.pending.clear();
-    if(!jobs.length)return this.tail;
-    for(const job of jobs){clearTimeout(job.timer);this.active.add(job);}
-    const task=(async()=>{
+  flush() {
+    const task=this.tail.then(async()=>{
+      const jobs=[...this.pending.values()];this.pending.clear();
+      if(!jobs.length)return;
+      for(const job of jobs){clearTimeout(job.timer);this.active.add(job);}
       let failure;
       for(const job of jobs){
         try{if(!job.cancelled)await this.write(job.value);for(const waiter of job.waiters)waiter.resolve(!job.cancelled);}
@@ -24,7 +23,7 @@ export class CoalescedWrites {
         finally{this.active.delete(job);}
       }
       if(failure)throw failure;
-    })();
+    });
     this.tail=task.catch(()=>{});return task;
   }
   async discard(matches) {

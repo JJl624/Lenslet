@@ -36,8 +36,10 @@ function scheduleScan(){clearTimeout(watchTimer);watchTimer=setTimeout(()=>void 
 function watchVault() {
   watcher?.close();
   clearTimeout(watchTimer);
-  try {
-    watcher = require('node:fs').watch(vault.root, { recursive: true }, (_event, file) => {
+  const current=vault;
+  watcher = require('./vault-watcher.cjs').watchWithRecovery(current.root, {
+    changed(file) {
+      if(current!==vault)return;
       if (
         file
         && String(file).split(/[\\/]/).some(p =>
@@ -50,14 +52,13 @@ function watchVault() {
       sync?.invalidateLocal?.(changed);
       syncScheduler?.changed(changed);
       scheduleScan();
-    });
-    watcher.on('error', () => {
-      watcher?.close();
-      watcher = null;
-    });
-  } catch {
-    watcher = null;
-  }
+    },
+    failed(error) {
+      if(current!==vault)return;
+      const message='文件监听暂时不可用，正在重试：'+error.message;
+      if(scanError!==message){scanError=message;window?.webContents.send('moyu:scan-error',message);}
+    },
+  });
 }
 async function scanVault() {
   clearTimeout(watchTimer);

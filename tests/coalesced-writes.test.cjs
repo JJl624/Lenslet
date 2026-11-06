@@ -1,5 +1,18 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {CoalescedWrites}=require('../shared/coalesced-writes.mjs');
+
+test('Overlapping lifecycle flushes never start parallel draft writes',async()=>{
+  const started=[],release=[];let active=0,peak=0;
+  const queue=new CoalescedWrites(value=>new Promise(resolve=>{
+    started.push(value);peak=Math.max(peak,++active);release.push(()=>{active--;resolve();});
+  }));
+  const old=queue.set('note','old'),first=queue.flush();
+  let newer;queueMicrotask(()=>{newer=queue.set('note','new');});
+  const second=queue.flush();await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(started,['old']);release.shift()();await first;
+  await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(started,['old','new']);
+  release.shift()();await Promise.all([old,newer,second]);assert.equal(peak,1);
+});
 test('A typing burst writes only the latest recovery snapshot; explicit flush is durable',async()=>{
   const stored=[],queue=new CoalescedWrites(async value=>stored.push(value));
   const waiting=[];for(let i=0;i<100;i++)waiting.push(queue.set('note',{content:String(i)}));
