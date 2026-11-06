@@ -1,13 +1,13 @@
 # Lenslet
 
-Lenslet 原名墨屿（Moyu），是一款本地 Markdown 编辑器。支持预览编辑、源码、阅读和 WebDAV 同步。桌面版支持运行代码。
+Lenslet 是一款本地优先的 Markdown 编辑器。笔记保存在普通文件夹，可通过 WebDAV 在设备间同步。
 
-- [下载 Windows、Linux 和 Android 版](https://github.com/JJl624/Lenslet/releases/latest)
-- [反馈问题](https://github.com/JJl624/Lenslet/issues)
-- [开发与维护](docs/maintenance-handbook.md)
+[下载 Lenslet](https://github.com/JJl624/Lenslet/releases/latest)
 
-旧版安装包使用 Moyu 文件名。
+- **写作与阅读**　在预览编辑、源码和阅读之间切换，支持多级列表、数学公式、Mermaid 和折叠引用。
+- **代码笔记**　用标签页整理代码，在桌面运行代码，还能把交互式 HTML 钉在正文里。
+- **内嵌附件**　桌面版可在笔记中阅读 PDF、预览 Excalidraw 绘图和播放乐谱。
 
-开发需要 Node.js 24。依次运行 `npm ci`、`npm run build` 和 `npm start`。首次构建会下载运行资源。用 `npm test` 运行单元测试。
+![Lenslet 亮色主题下的多级列表，第三项内嵌 Python 和 JavaScript 代码标签页](docs/lenslet-preview.png)
 
-采用 [MIT 许可证](LICENSE)，另见[第三方许可](THIRD_PARTY_NOTICES.md)。
+[反馈问题](https://github.com/JJl624/Lenslet/issues)、[开发与维护](docs/maintenance-handbook.md)、[MIT 许可证](LICENSE)
