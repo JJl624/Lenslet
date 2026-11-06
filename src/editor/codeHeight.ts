@@ -197,7 +197,7 @@ export const resizeCodeBlocks = $prose(() =>
             preview:height=>{heightTarget.style.height=height===null?'':height+'px';},
             commit:save,
             active:value=>{if(value)dragging.add(dom);else dragging.delete(dom);},
-          });
+          },height);
           cleanups.set(dom, {
             cm,
             handle,

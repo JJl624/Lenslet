@@ -20,7 +20,10 @@ test('Document opening and repeated switching retain content and report renderer
       await expect(f.page.locator('.ProseMirror h1').first()).toHaveText('# '+sample.name);
       await expect(f.page.locator('.editor-host')).not.toHaveAttribute('data-editor-pending','true');
       const after=await metrics();rows.push({document:sample.name,round,ms:Date.now()-started,cpuMs:(after.TaskDuration-before.TaskDuration)*1000,layouts:after.LayoutCount-before.LayoutCount,codeViews:await f.page.locator('.milkdown-code-block .cm-editor').count()});
-      if(round>0&&sample.name==='密集代码')expect(after.LayoutCount-before.LayoutCount).toBeLessThan(45);
+      if(sample.name==='密集代码'){
+        if(round>0)expect.soft(after.LayoutCount-before.LayoutCount).toBeLessThan(45);
+        await expect(f.page.locator('.milkdown-code-block .code-resize[aria-valuenow]')).toHaveCount(80);
+      }
       await expect(f.page.locator('.save-status')).not.toContainText('未保存');
     }
     const profile=(await cdp.send('Profiler.stop')).profile;

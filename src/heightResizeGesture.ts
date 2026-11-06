@@ -15,9 +15,24 @@ type ResizeOptions = {
   keyboardStep?: number;
 };
 
+// Many blocks mount together. Measure every automatic height before writing
+// any ARIA values, so mounting a handle never forces layout for the next one.
+const pendingHeightReads = new Set<() => (() => void) | undefined>();
+let heightFrame = 0;
+function scheduleHeightRead(read: () => (() => void) | undefined) {
+  pendingHeightReads.add(read);
+  if (heightFrame) return;
+  heightFrame = requestAnimationFrame(() => {
+    heightFrame = 0;
+    const reads = [...pendingHeightReads];
+    pendingHeightReads.clear();
+    for (const write of reads.map(read => read())) write?.();
+  });
+}
+
 // Touch scrolling owns the gesture until the system long-press timeout expires.
 // All resizable surfaces use this same pointer, touch, reset and keyboard path.
-export function bindHeightResize(handle: HTMLElement, options: ResizeOptions) {
+export function bindHeightResize(handle: HTMLElement, options: ResizeOptions, initialValue = options.value()) {
   const min = options.minHeight ?? 60;
   const max = Math.max(min, options.maxHeight ?? 4000);
   const step = options.keyboardStep ?? 24;
@@ -33,9 +48,22 @@ export function bindHeightResize(handle: HTMLElement, options: ResizeOptions) {
   handle.setAttribute('aria-valuemax', String(max));
   handle.title = options.mobile ? '长按后拖动调整高度；双击恢复默认高度' : '拖动调整高度；双击恢复默认高度';
 
+  const setAriaHeight = (height: number) =>
+    handle.setAttribute('aria-valuenow', String(bounded(height)));
+  const readAriaHeight = () => {
+    if (!handle.isConnected) return;
+    const height = options.defaultHeight?.() ?? options.measure();
+    return () => setAriaHeight(height);
+  };
   const updateAria = (height: number | null) => {
-    const fallback = options.defaultHeight?.() ?? options.measure();
-    handle.setAttribute('aria-valuenow', String(bounded(height ?? fallback)));
+    if (height === null) scheduleHeightRead(readAriaHeight);
+    else {
+      pendingHeightReads.delete(readAriaHeight);
+      setAriaHeight(height);
+    }
+  };
+  const focus = () => {
+    if (pendingHeightReads.delete(readAriaHeight)) readAriaHeight()?.();
   };
   const apply = (height: number | null, commit = false) => {
     const next = height === null ? null : bounded(height);
@@ -43,7 +71,7 @@ export function bindHeightResize(handle: HTMLElement, options: ResizeOptions) {
     updateAria(next);
     if (commit) options.commit(next);
   };
-  updateAria(options.value());
+  updateAria(initialValue);
 
   const clear = () => {
     clearTimeout(timer);
@@ -165,12 +193,15 @@ export function bindHeightResize(handle: HTMLElement, options: ResizeOptions) {
   handle.addEventListener('touchend', touchEnd, {passive: false});
   handle.addEventListener('touchcancel', cancel);
   handle.addEventListener('dblclick', reset);
+  handle.addEventListener('focus', focus);
   handle.addEventListener('keydown', keydown);
   handle.addEventListener('click', prevent);
   handle.addEventListener('contextmenu', prevent);
 
   return () => {
     cancel();
+    pendingHeightReads.delete(readAriaHeight);
+    handle.removeEventListener('focus', focus);
     handle.removeEventListener('pointerdown', pointerDown);
     handle.removeEventListener('pointermove', pointerMove);
     handle.removeEventListener('pointerup', pointerUp);
