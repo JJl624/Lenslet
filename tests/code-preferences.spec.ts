@@ -18,6 +18,18 @@ for(const theme of ['light','dark'])test(`One code category exposes every langua
  const {app,page}=await fixture(theme);
  try{
   await expect(page.locator('.pref-tabs > button')).toHaveText(['字体与排版','界面','编辑','WebDAV','终端','代码','数据与运行环境']);
+  const categories=page.getByRole('navigation',{name:'设置分类'});
+  const appearance=categories.getByRole('button',{name:'界面',exact:true});
+  await appearance.click();
+  await expect(appearance).toHaveAttribute('aria-current','page');
+  await expect(appearance).toHaveCSS('box-shadow','none');
+  await expect(appearance).toHaveCSS('border-left-width','0px');
+  const editing=categories.getByRole('button',{name:'编辑',exact:true});
+  await editing.hover();
+  await expect(editing).not.toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+  await page.keyboard.press('Tab');
+  await expect(editing).toBeFocused();
+  await expect(editing).toHaveCSS('outline-style','solid');
   await (await app.browserWindow(page)).evaluate(w=>w.setSize(900,700));
   await selectPreference(page,'通用');
   const tabs=page.getByRole('tablist',{name:'代码语言',exact:true});

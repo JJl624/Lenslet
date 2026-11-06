@@ -18,6 +18,6 @@ export function MobileMediaViewer({media,close}:{media:MobileMedia;close():void}
       <div className='mobile-media-content' style={{width:zoom*100+'%',minHeight:zoom*100+'%'}}>
         {media.src?<img src={media.src} alt={media.label} draggable={false}/>:<div className='mobile-media-svg' dangerouslySetInnerHTML={{__html:media.svg||''}}/>}
       </div>
-    </div><footer><output>{Math.round(zoom*100)}%</output><span>双击缩放 · 放大后滑动查看</span></footer>
+    </div><footer><output>{Math.round(zoom*100)}%</output><span>双击缩放，放大后可滑动查看</span></footer>
   </dialog>;
 }

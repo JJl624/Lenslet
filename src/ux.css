@@ -62,7 +62,6 @@
 .preferences .pref-row>div { gap:8px; }
 .pref-row>div>small { width:20px;color:var(--secondary);font-size:11px; }
 .excalidraw .moyu-drawing-number { display:block;position:relative;margin:12px 0 0 auto;width:62px;height:28px;border:1px solid var(--border-strong);border-radius:4px;background:var(--bg);color:var(--text);padding:4px 6px;font:12px var(--font-drawing); }
-.preferences .pref-tabs button.active { font-weight:600;box-shadow:inset 2px 0 var(--accent); }
 .app .mode-switch { background:transparent;border:0;padding:0;gap:3px; }
 .app .mode-switch button { padding:5px 7px;font-size:11px;border-radius:3px;color:var(--secondary); }
 .app .mode-switch button.selected { background:var(--hover);box-shadow:none;color:var(--text); }

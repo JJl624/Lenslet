@@ -272,7 +272,7 @@ export class MobileSyncJob {
         }
       }
       const snapshot=[...this.cloud.values()];await writeSummary(this.key,{lastSync:Date.now(),checkedAt:Date.now(),remote:snapshot,conflicts:conflicts.map(conflict=>conflict.path),pendingUploads,error:'',needsConfirmation:false,needsDirectoryConfirmation:false});
-      this.progress({stage:pendingUploads.length?'等待确认上传':`同步完成 · 上传 ${uploaded}，下载 ${downloaded}`,completed:uploaded+downloaded,total:uploaded+downloaded,path:''});return{conflicts,uploaded,downloaded,remote:snapshot,pendingUploads,skipped};
+      this.progress({stage:pendingUploads.length?'等待确认上传':`同步完成。上传 ${uploaded} 项，下载 ${downloaded} 项`,completed:uploaded+downloaded,total:uploaded+downloaded,path:''});return{conflicts,uploaded,downloaded,remote:snapshot,pendingUploads,skipped};
     }catch(error){await writeSummary(this.key,{error:this.cancelled?'':(error as Error).message}).catch(()=>{});throw error;}
   }
   private async performRefreshTree(){await this.loadBaseline();const remote=await this.list(true);await writeSummary(this.key,{checkedAt:Date.now(),remote});return remote;}

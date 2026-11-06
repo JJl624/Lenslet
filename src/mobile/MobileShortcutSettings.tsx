@@ -11,7 +11,7 @@ export function MobileShortcutSettings({order,change}:{order:string[];change(val
     const next=[...latest.current];next.splice(from,1);next.splice(to,0,key);latest.current=next;change(next);
     setAnnouncement((allFormats.find(item=>item.action===key)?.label||'')+'，第 '+(to+1)+' 项');
   };
-  return <><p className='mobile-caption'>拖动手柄调整顺序。工具栏可左右滑动。</p><h3>已添加 · {order.length}</h3><div className='mobile-shortcut-list' ref={list}
+  return <><p className='mobile-caption'>拖动手柄调整顺序。工具栏可左右滑动。</p><h3>已添加 {order.length} 项</h3><div className='mobile-shortcut-list' ref={list}
     onPointerMove={event=>{
       if(!drag.current)return;
       const rows=[...list.current?.querySelectorAll<HTMLElement>('[data-shortcut]')||[]];

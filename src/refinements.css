@@ -49,7 +49,8 @@
 .preferences { display:grid;grid-template-columns:155px minmax(0,1fr); }
 .pref-tabs { flex-direction:column;gap:4px;padding:16px 10px;margin:0;border:0;border-right:1px solid var(--border);background:var(--sidebar); }
 .pref-tabs button { border:0;border-radius:5px;padding:9px 10px;text-align:left;font-size:12px; }
-.pref-tabs button.active { background:var(--selected);color:var(--accent); }
+.pref-tabs button:not(.active):hover { background:var(--hover); }
+.pref-tabs button.active { background:var(--selected);color:var(--accent);font-weight:600; }
 .pref-content { min-height:440px;height:min(66vh,610px);max-height:none;padding:20px 24px; }
 .pref-bottom { grid-column:1/-1;margin:0;padding:13px 24px;border-top:1px solid var(--border);background:var(--sidebar); }
 .pref-section { margin:24px 0 0;padding-top:20px;border-top:1px solid var(--border); }

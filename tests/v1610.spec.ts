@@ -1,4 +1,5 @@
 import {editPreviewReference} from './attachment-helper';
+import {openRuntimeInstaller,selectPreference} from './helpers/runtime-ui';
 import { _electron as electron, expect, type Page, test } from './helpers/test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -221,21 +222,27 @@ test('Preferences keep functional controls with compact text and explicit font i
   try {
     await page.getByRole('button', { name: '偏好设置', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: '偏好设置', exact: true });
-    await expect(dialog.getByLabel('当前字体继承关系')).toContainText('继承 代码字体');
+    await dialog.getByRole('button', { name: '源码界面', exact: true }).click();
+    await expect(dialog.getByTitle('跟随代码字体', { exact: true })).toBeVisible();
     await expect(dialog).not.toContainText('包含系统本地化名称');
-    for (const label of ['编辑', '数据与运行环境', 'Python']) {
-      await dialog.getByRole('button', { name: label, exact: true }).click();
+    for (const label of ['编辑', '数据与运行环境', '通用', 'Python']) {
+      await selectPreference(page, label);
       await expect(dialog).not.toContainText('·');
       await expect(dialog).not.toContainText('临时界面内容');
       if (label === '编辑') {
         await expect(dialog.getByLabel('保存方式', { exact: true })).toBeVisible();
-        await expect(dialog.getByLabel('dprint 配置 JSON', { exact: true })).toBeVisible();
         await expect(dialog).not.toContainText('点击最后一个元素');
       }
+      if (label === '通用') {
+        await expect(dialog.getByLabel('dprint 配置 JSON', { exact: true })).toBeVisible();
+      }
       if (label === 'Python') {
+        await dialog.getByRole('tab', { name: '运行设置', exact: true }).click();
         await expect(dialog.getByLabel('Python 代码执行时限', { exact: true })).toBeVisible();
-        await expect(dialog.getByRole('button', { name: '刷新可用版本', exact: true }))
-          .toBeVisible();
+        await dialog.getByRole('tab', { name: '环境', exact: true }).click();
+        await openRuntimeInstaller(page);
+        await expect(dialog.getByRole('button', { name: '刷新可用版本', exact: true })).toBeVisible();
+        await expect(dialog).not.toContainText('·');
       }
     }
     expect(errors).toEqual([]);

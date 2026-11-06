@@ -95,18 +95,9 @@
 }
 .pref-tabs {
   display: flex;
-  gap: 5px;
-  border-bottom: 1px solid var(--border-strong);
-  margin-bottom: 10px;
 }
 .pref-tabs button {
-  padding: 10px 14px;
   color: var(--secondary);
-  border-bottom: 2px solid transparent;
-}
-.pref-tabs .active {
-  border-color: var(--accent);
-  color: var(--text);
 }
 .pref-content {
   min-height: 310px;

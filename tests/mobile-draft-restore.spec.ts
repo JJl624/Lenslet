@@ -10,7 +10,7 @@ for(const conflict of [false,true])test(`Restoring another document draft preser
   },{version:conflict?'old':createHash('sha256').update('原文 A').digest('hex')});
   await page.goto('/mobile.html');await expect(page.locator('.mobile-notice')).toContainText(/恢复|冲突/);
   await expect(page.locator('.mobile-document-title strong')).toHaveText('b');await expect(page.locator('.reading-view')).toContainText('原文 B');
-  await page.locator('.mobile-document-title').tap();await expect(page.locator('.mobile-opened-row')).toHaveCount(2);await expect(page.locator('.mobile-opened-row > button:first-child span')).toHaveText(['b','a · 未保存']);
+  await page.locator('.mobile-document-title').tap();await expect(page.locator('.mobile-opened-row')).toHaveCount(2);await expect(page.locator('.mobile-opened-row > button:first-child span')).toHaveText(['b','a（未保存）']);
   await page.getByRole('button',{name:'关闭已打开的文档',exact:true}).tap();await page.getByRole('button',{name:'返回笔记',exact:true}).tap();await page.locator('[data-path="a.md"] .mobile-file-open').tap();
   await expect(page.locator('.reading-view')).toContainText('草稿 A');
   expect(await page.evaluate(()=>(window as any).__mobileState.files['a.md'].content)).toBe('原文 A');expect(await page.evaluate(()=>(window as any).__mobileState.files['b.md'].content)).toBe('原文 B');

@@ -90,7 +90,7 @@ export function ElementMenu(
   const button=(a:MenuAction,compact=false)=>{
     const {Icon,shortcut,danger}=menuAppearance(a.id);
     return <button role={a.checked===undefined?'menuitem':'menuitemcheckbox'} aria-checked={a.checked} disabled={a.disabled} key={a.id||a.label} data-menu-id={a.id}
-      aria-label={a.label} title={compact?(a.checked?'取消':'')+a.label+(shortcut?' · '+shortcut:''):undefined}
+      aria-label={a.label} title={compact?(a.checked?'取消':'')+a.label+(shortcut?'（'+shortcut+'）':''):undefined}
       aria-haspopup={a.children?'menu':undefined} aria-expanded={a.children?submenu?.item===a:undefined}
       className={danger?'menu-danger':undefined}
       onMouseEnter={event=>{if(a.children)expand(a,event.currentTarget);else if(!submenuRef.current?.contains(event.currentTarget))setSubmenu(null);}}
