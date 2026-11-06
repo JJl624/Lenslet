@@ -32,7 +32,7 @@ jobs:
           sha256sum ./*.AppImage ./*.deb > SHA256SUMS-linux.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Moyu-linux-x64
+          name: Lenslet-linux-x64
           if-no-files-found: error
           path: |
             release/v*/*.AppImage

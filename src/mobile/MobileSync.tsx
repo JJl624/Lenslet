@@ -10,7 +10,7 @@ import {useMobileOverwriteConfirmation} from './useMobileOverwriteConfirmation';
 
 export default function MobileSync({root,back,flush,refreshed,review}:{root:string;back():void;flush():Promise<boolean>;refreshed():Promise<void>;review(items:SyncConflict[]):void}) {
   const overwrite=useMobileOverwriteConfirmation(root);
-  const [config,setConfig]=useState<SyncConfig>({url:'',directory:'/Moyu',username:'',password:''}),[loaded,setLoaded]=useState(false),[visible,setVisible]=useState(false);
+  const [config,setConfig]=useState<SyncConfig>({url:'',directory:'/Lenslet',username:'',password:''}),[loaded,setLoaded]=useState(false),[visible,setVisible]=useState(false);
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[status,setStatus]=useState(''),[progress,setProgress]=useState<SyncProgress|null>(null);
   const [operationKind,setOperationKind]=useState<'test'|'sync'|'list'>('sync');
   const [waiting,setWaiting]=useState(false);
@@ -18,7 +18,7 @@ export default function MobileSync({root,back,flush,refreshed,review}:{root:stri
   const job=useRef<MobileSyncJob|null>(null),live=useRef(true),current=useRef(config);current.current=config;
   const savedConfig=useRef('');
   useEffect(()=>{const pause=()=>job.current?.cancel();window.addEventListener('moyu-mobile-pause',pause);return()=>window.removeEventListener('moyu-mobile-pause',pause);},[]);
-  useEffect(()=>{void mobileFeature<SyncConfig>('mobile.webdav-config',{root}).then(value=>{if(live.current){const initial={url:value.url||'',directory:value.directory??(value.url?'/':'/Moyu'),username:value.username||'',password:value.password||'',sync:policy(value.sync)};savedConfig.current=JSON.stringify(initial);setConfig(initial);setLoaded(true);}}).catch(error=>setError(error.message));return()=>{live.current=false;job.current?.cancel();};},[]);
+  useEffect(()=>{void mobileFeature<SyncConfig>('mobile.webdav-config',{root}).then(value=>{if(live.current){const initial={url:value.url||'',directory:value.directory??(value.url?'/':'/Lenslet'),username:value.username||'',password:value.password||'',sync:policy(value.sync)};savedConfig.current=JSON.stringify(initial);setConfig(initial);setLoaded(true);}}).catch(error=>setError(error.message));return()=>{live.current=false;job.current?.cancel();};},[]);
   useEffect(()=>{const backEvent=()=>{void leave();};window.addEventListener('moyu-mobile-back',backEvent);return()=>window.removeEventListener('moyu-mobile-back',backEvent);},[viewCloud,busy,config,loaded]);
   const persist=async()=>{if(loaded){const value={...current.current,sync:policy(current.current.sync)},serialized=JSON.stringify(value);if(serialized===savedConfig.current)return;await mobileFeature('mobile.webdav-config',{root,config:value});savedConfig.current=serialized;notifySync();window.dispatchEvent(new Event('moyu-mobile-sync-config'));}};
   const execute=async(action:'test'|'sync'|'list')=>{
@@ -39,7 +39,7 @@ export default function MobileSync({root,back,flush,refreshed,review}:{root:stri
     :<main className='mobile-home-content mobile-sync-content'>
       <section className='mobile-sync-card'>
         <label>服务地址<div className='mobile-url-field'><input aria-label='WebDAV 地址' inputMode='url' autoCapitalize='none' autoCorrect='off' placeholder='https://dav.jianguoyun.com/dav/' value={config.url} disabled={busy||!loaded} onChange={event=>{setConfig({...config,url:event.target.value});setStatus('');}} onBlur={()=>void persist().catch(error=>setError(error.message))}/><button aria-label='测试连接' disabled={busy||!loaded||!config.url} onClick={()=>void execute('test')}>测试</button></div></label>
-        <label>同步目录<input aria-label='同步目录' autoCapitalize='none' autoCorrect='off' placeholder='/Moyu' value={config.directory||''} disabled={busy||!loaded} onChange={event=>{setConfig({...config,directory:event.target.value});setStatus('');}} onBlur={()=>void persist().catch(error=>setError(error.message))}/></label>
+        <label>同步目录<input aria-label='同步目录' autoCapitalize='none' autoCorrect='off' placeholder='/Lenslet' value={config.directory||''} disabled={busy||!loaded} onChange={event=>{setConfig({...config,directory:event.target.value});setStatus('');}} onBlur={()=>void persist().catch(error=>setError(error.message))}/></label>
         <p className='mobile-caption mobile-directory-help'>相对于服务地址；填 / 表示该地址下的全部文件。</p>
         {destination&&<div className='mobile-sync-destination'><span>同步到</span><output aria-label='最终同步地址'>{destination}</output></div>}
         <label>用户名<input aria-label='WebDAV 用户名' autoCapitalize='none' autoCorrect='off' value={config.username} disabled={busy||!loaded} onChange={event=>setConfig({...config,username:event.target.value})} onBlur={()=>void persist().catch(error=>setError(error.message))}/></label>

@@ -29,8 +29,13 @@ Section
   StrCpy $customData 1
   ${If} $dataRoot == ""
     StrCpy $customData 0
+    StrCpy $dataRoot "$DOCUMENTS\LensletData"
+    # Match Electron: keep existing profiles and their absolute paths in place.
+    IfFileExists "$dataRoot\." dataRootSelected 0
+    IfFileExists "$DOCUMENTS\MoyuData\." 0 dataRootSelected
     StrCpy $dataRoot "$DOCUMENTS\MoyuData"
   ${EndIf}
+dataRootSelected:
   # NSIS GetFullPathName requires an existing path and may return an empty
   # string on the first launch. Win32 resolves paths before they are created.
   System::Call 'Kernel32::GetFullPathNameW(w "$dataRoot", i ${NSIS_MAX_STRLEN}, w .r1, p 0)i.r0'
@@ -65,7 +70,7 @@ Section
 
   # Serialize extraction across launches. Release the lock before running the app.
   StrCpy $prepareStage "启动锁"
-  System::Call 'Kernel32::CreateMutex(p 0, i 0, t "Local\MoyuPrepare-@BUILD_ID@")p.r0'
+  System::Call 'Kernel32::CreateMutex(p 0, i 0, t "Local\LensletPrepare-@BUILD_ID@")p.r0'
   StrCpy $prepareLock $0
   ${If} $prepareLock == 0
     Goto failure
@@ -161,7 +166,7 @@ failure:
   FileClose $R0
 showFailure:
   ${If} $probeFile == ""
-    MessageBox MB_OK|MB_ICONSTOP "无法准备 Moyu 程序环境。$\r$\n阶段：$prepareStage$\r$\nWindows 错误：$prepareError$\r$\n目录：$dataRoot$\r$\n详细信息：$cacheRoot\startup-error.txt"
+    MessageBox MB_OK|MB_ICONSTOP "无法准备 Lenslet 程序环境。$\r$\n阶段：$prepareStage$\r$\nWindows 错误：$prepareError$\r$\n目录：$dataRoot$\r$\n详细信息：$cacheRoot\startup-error.txt"
   ${EndIf}
   SetErrorLevel 1
 done:

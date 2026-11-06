@@ -11,7 +11,7 @@ export const WebDAVPreferences = forwardRef<WebDAVPreferencesHandle, { root: str
   const [ready, setReady] = useState(false), [hasPassword, setHasPassword] = useState(false);
   const [visible, setVisible] = useState(false), [savedPassword, setSavedPassword] = useState('');
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(''), [error, setError] = useState('');
-  const draft = usePreferenceDraft<WebDAVConnection>('WebDAV', { directory: '/Moyu', sync: {...syncDefaults} }, async value => {
+  const draft = usePreferenceDraft<WebDAVConnection>('WebDAV', { directory: '/Lenslet', sync: {...syncDefaults} }, async value => {
     if (!root || !api.desktop) return;
     const saved = await api.feature<{ webdav: WebDAVConnection }>('connections.save', { kind: 'webdav', ...value });
     setHasPassword(!!saved.webdav.hasPassword);
@@ -23,7 +23,7 @@ export const WebDAVPreferences = forwardRef<WebDAVPreferencesHandle, { root: str
     let alive = true; setReady(false); setVisible(false); setSavedPassword('');
     if (api.desktop && root) void api.feature<{ webdav: WebDAVConnection }>('connections.get').then(c => {
       if (alive) {
-        draft.load({ directory: '/Moyu', ...c.webdav, password: '', clearPassword: false, sync: { ...syncDefaults, ...c.webdav.sync } });
+        draft.load({ directory: '/Lenslet', ...c.webdav, password: '', clearPassword: false, sync: { ...syncDefaults, ...c.webdav.sync } });
         setHasPassword(!!c.webdav.hasPassword); setReady(true);
       }
     }).catch(e => alive && setError(e.message));
@@ -63,7 +63,7 @@ export const WebDAVPreferences = forwardRef<WebDAVPreferencesHandle, { root: str
     {!root || !api.desktop ? <p className='muted-note'>先打开本地知识库。</p> : !ready ? <p>加载中…</p> : <>
       <fieldset disabled={busy}>
         <h3 className='pref-section-heading'>连接</h3>
-        {([['url','WebDAV 地址','https://…'],['directory','远端目录','/Moyu'],['username','用户名','']] as const).map(([key,label,placeholder]) =>
+        {([['url','WebDAV 地址','https://…'],['directory','远端目录','/Lenslet'],['username','用户名','']] as const).map(([key,label,placeholder]) =>
           <label className='pref-row dav-connection' key={key}><span>{label}</span><input aria-label={label} value={value[key] || ''}
             placeholder={placeholder} autoComplete='off' onChange={e => change({[key]:e.target.value})} /></label>)}
         <label className='pref-row dav-connection'><span>密码</span><div className='dav-password'>

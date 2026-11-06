@@ -1,3 +1,4 @@
+import {releases} from '../shared/app-releases.mjs';
 import { useEffect, useState } from 'react';
 import { version } from '../package.json';
 import { api } from './bridge';
@@ -36,14 +37,14 @@ export function AppUpdates({ ready }: { ready: boolean }) {
     return () => window.removeEventListener('moyu-check-update',show);
   },[]);
   const download = () => {
-    void api.openExternal(state?.latest?.url || 'https://github.com/JJl624/Moyu/releases/latest').catch(e => {
+    void api.openExternal(state?.latest?.url || releases + '/latest').catch(e => {
       setError(e.message); setOpen(true);
     });
   };
   if (!api.desktop) return null;
   return <>
     {!open && state?.latest && dismissed !== state.latest.version && <div className='app-update-notice' role='status'>
-      <span>Moyu {state.latest.version} 可用</span>
+      <span>Lenslet {state.latest.version} 可用</span>
       <button className='text-button' onClick={() => setOpen(true)}>查看更新</button>
       <button className='text-button' aria-label='关闭更新提示' onClick={() => setDismissed(state.latest!.version)}>关闭</button>
     </div>}

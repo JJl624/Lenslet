@@ -1,4 +1,4 @@
-# 墨屿 Moyu 维护手册
+# Lenslet 维护手册
 
 适用对象：接手项目的开发者、测试人员及 AI agent。本文依据 **2026-11-03 的本地工作树**整理。命令默认在项目根目录执行；示例以 PowerShell 为主。本文是维护地图与操作手册，不代替源码中的校验，也不意味着文中列举的功能都已经在所有平台发布。
 
@@ -213,7 +213,7 @@ Remove-Item Env:MOYU_BUILD_ASSETS_FILE
 
 ### 4.2 隔离开发数据
 
-桌面默认应用数据目录为系统 Documents 下的 `MoyuData`，不是项目的 `work`。手动开发前应使用独立目录，避免修改真实知识库、配置或同步连接：
+新用户的桌面应用数据位于系统 Documents 下的 `LensletData`。如果新目录尚未创建而旧版 `MoyuData` 已存在，则继续使用旧目录，保留绝对路径和配置。Android 保留已有包名和签名以支持覆盖安装。手动开发前应使用独立目录，避免修改真实知识库、配置或同步连接：
 
 ```powershell
 $env:MOYU_USER_DATA=Join-Path $env:TEMP ('moyu-dev-'+[guid]::NewGuid().ToString('N'))
@@ -703,7 +703,7 @@ npm run test:performance
 npm run test:e2e
 ```
 
-`test:e2e` 是一组明确列出的广泛回归，不要误认为一两个文件参数一定会把原列表替换掉。专项运行用 `node scripts/run-regressions.mjs all ...` 更清楚。
+`test:e2e` 按桌面 Playwright 配置自动发现测试，不再维护手工文件列表。专项运行使用 `node scripts/run-regressions.mjs all tests/目标.spec.ts`，避免无意运行整个套件。
 
 统一 runner 管理测试进程、配置目录和剪贴板恢复。直接使用 `npx playwright test` 时，不会自动获得 runner 提供的所有保护；涉及剪贴板或隔离配置的测试优先走 runner。
 
@@ -842,7 +842,7 @@ npm run dist:win
 
 实际链路为资源恢复 → TypeScript/Vite → `build-native.mjs` 生成 `build-app` → `dist-win.mjs` / electron-builder。只改 `dist` 或 `build-app` 不会形成可维护修复，下次构建会覆盖。
 
-版本来源包括 `package.json.version`、lockfile 根版本及 `build.directories.output`。当前输出习惯为 `release/v<版本>/Moyu-<版本>-x64.exe`，更新识别依赖准确文件名。
+版本来源包括 `package.json.version`、lockfile 根版本及 `build.directories.output`。当前输出习惯为 `release/v<版本>/Lenslet-<版本>-x64.exe`，更新识别依赖准确文件名。
 
 `dist-win.mjs` 和 `portable.nsi` 包含版本绑定适配，不能在升级 builder 时只让命令退出 0。需要验证启动、资源展开、并发启动、进程退出和用户数据保留。
 
@@ -854,7 +854,7 @@ npm run dist:win
 npm run dist:android
 ```
 
-正式 ARM64 产物为 `release/android/v<版本>/Moyu-Android-<版本>.apk`，脚本生成哈希文件。x86_64 用于模拟器时明确 ABI，不把其后缀包冒充手机通用正式资源。
+正式 ARM64 产物为 `release/android/v<版本>/Lenslet-Android-<版本>.apk`，脚本生成哈希文件。x86_64 用于模拟器时明确 ABI，不把其后缀包冒充手机通用正式资源。
 
 签名在 `android/signing/moyu-release.jks` 与对应 `.properties`。首次全新开发环境脚本能生成钥匙，但维护已发布应用时必须先恢复原签名；**丢失钥匙再生成一个同名文件也无法覆盖升级**。不能为了安装成功建议用户卸载正式版而不解释本地数据风险。
 
@@ -872,13 +872,13 @@ npm run dist:android
 
 ### 21.4 GitHub 源码与 Release 是不同动作
 
-仓库为 `JJl624/Moyu`。源代码 push 不会自动让更新检查发现新版本；还需要正式 tag/Release 和符合名称、平台、架构的可下载资源。
+仓库为 `JJl624/Lenslet`。旧版安装包按旧文件名和仓库地址识别更新。首次升级至 Lenslet 时，可从新仓库 Release 页面下载同平台安装包，后续由 Lenslet 检查更新。源代码 push 不会自动让更新检查发现新版本；还需要正式 tag/Release 和符合名称、平台、架构的可下载资源。
 
 `shared/app-releases.mjs` 验证稳定版本、tag、资源名称、上传完成状态和下载地址；草稿或预发布不能当正式更新。桌面 `app-updates.cjs` 有合并请求、每日自动检查、关闭选项及 GitHub 限流回退；安卓通过现有下载/安装和来源校验，不替换为任意 URL 自动安装。
 
 建议发布顺序：按功能提交与推送 → 验证目标提交 → 构建并核验哈希 → 上传目标版本资源 → 检查文件可下载 → 发布正式 Release → 通过应用更新入口验证。具体 GitHub 操作先确认当前用户授权和工具，不默认安装新工具或要求提交凭据。
 
-当前命名规则以共享模块为准，例如 Windows `Moyu-<版本>-x64.exe`；Linux AppImage 的架构命名与 Node 的 `x64` 不完全相同，不能随意改名后期待自动识别。Linux 只有用户明确要求时才构建和测试。
+当前命名规则以共享模块为准，例如 Windows `Lenslet-<版本>-x64.exe`；Linux AppImage 的架构命名与 Node 的 `x64` 不完全相同，不能随意改名后期待自动识别。Linux 只有用户明确要求时才构建和测试。
 
 GitHub 仅放必要源码、测试、构建输入和许可；安装包、运行时大归档通过 Release 分发。README 保持简短，维护细则放在本目录。
 

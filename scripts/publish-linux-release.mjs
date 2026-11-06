@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 
 const tag=process.env.RELEASE_TAG,run=process.env.BUILD_RUN_ID,repository=process.env.GITHUB_REPOSITORY;
-if(!/^v\d+\.\d+\.\d+$/.test(tag||'')||!/^\d+$/.test(run||'')||repository!=='JJl624/Moyu'||!process.env.GH_TOKEN)throw Error('Release inputs or credentials are missing.');
+if(!/^v\d+\.\d+\.\d+$/.test(tag||'')||!/^\d+$/.test(run||'')||repository!=='JJl624/Lenslet'||!process.env.GH_TOKEN)throw Error('Release inputs or credentials are missing.');
 const headers={Authorization:'Bearer '+process.env.GH_TOKEN,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
 async function api(endpoint){const response=await fetch('https://api.github.com/repos/'+repository+endpoint,{headers,signal:AbortSignal.timeout(60000)});if(!response.ok)throw Error('GitHub HTTP '+response.status);return response.json();}
 const expected=execFileSync('git',['rev-parse',tag+'^{commit}'],{encoding:'utf8'}).trim(),build=await api('/actions/runs/'+run);
@@ -15,7 +15,7 @@ if(tag!=='v'+version)throw Error('Tag and package versions differ.');
 console.log('Verified Linux build '+run+' at '+expected);
 if(process.argv.includes('--verify-run'))process.exit(0);
 
-const names=['Moyu-'+version+'-x86_64.AppImage','Moyu-'+version+'-amd64.deb'],files=new Map();
+const names=['Lenslet-'+version+'-x86_64.AppImage','Lenslet-'+version+'-amd64.deb'],files=new Map();
 async function walk(folder,depth=0){if(depth>4)throw Error('Unexpected artifact layout.');for(const entry of await fsp.readdir(folder,{withFileTypes:true})){const file=path.join(folder,entry.name);if(entry.isDirectory())await walk(file,depth+1);else{if(!entry.isFile()||![...names,'SHA256SUMS-linux.txt'].includes(entry.name)||files.has(entry.name))throw Error('Unexpected artifact file.');files.set(entry.name,file);}}}
 await walk(path.resolve('linux-artifact'));
 if(files.size!==3)throw Error('Linux packages are incomplete.');

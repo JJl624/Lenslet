@@ -2,18 +2,18 @@ import semver from 'semver';
 import androidVariants from './android-variants.json' with {type:'json'};
 export const stableReleaseVersion=tag=>{const value=semver.valid(String(tag||'').replace(/^v/,''));return value&&[value,'v'+value].includes(tag)&&!semver.prerelease(value)?value:null;};
 export const newerRelease=(version,current)=>!!semver.valid(version)&&!!semver.valid(current)&&semver.gt(version,current);
-export const repository = 'JJl624/Moyu';
+export const repository = 'JJl624/Lenslet';
 export const releases = 'https://github.com/' + repository + '/releases';
 export function releaseAssets(version, platform=typeof process==='object'?process.platform:'android', arch=typeof process==='object'?process.arch:'universal') {
-  const prefix=`Moyu-${version}-${arch}`;
-  if(platform==='android')return['Moyu-Android-'+version+(arch==='webview'?androidVariants.webview.assetSuffix:androidVariants.gecko.assetSuffix)+'.apk'];
+  const prefix=`Lenslet-${version}-${arch}`;
+  if(platform==='android')return['Lenslet-Android-'+version+(arch==='webview'?androidVariants.webview.assetSuffix:androidVariants.gecko.assetSuffix)+'.apk'];
   if(platform==='win32')return[prefix+'.exe'];
   if(platform==='linux'){
     // electron-builder uses the distribution's architecture names in each
     // target's filename, rather than Node's x64/ia32 names.
     const imageArch=arch==='x64'?'x86_64':arch==='ia32'?'i386':arch;
     const debArch=arch==='x64'?'amd64':arch==='ia32'?'i386':arch;
-    return[`Moyu-${version}-${imageArch}.AppImage`,`Moyu-${version}-${debArch}.deb`];
+    return[`Lenslet-${version}-${imageArch}.AppImage`,`Lenslet-${version}-${debArch}.deb`];
   }
   if(platform==='darwin')return[prefix+'.dmg',prefix+'.zip'];
   throw Error('此平台暂无更新包。');

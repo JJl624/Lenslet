@@ -36,7 +36,7 @@ class DrawingLibrary {
   }
   save(items) {
     return this.vault.mutate(async () => {
-      const content = JSON.stringify({ type: "excalidrawlib", version: 2, source: "Moyu", libraryItems: items }, null, 2);
+      const content = JSON.stringify({ type: "excalidrawlib", version: 2, source: "Lenslet", libraryItems: items }, null, 2);
       parseLibrary(content);
       const file = await this.file(true);
       if (await fs.readFile(file, "utf8").catch(e => { if (e.code === "ENOENT") return null; throw e; }) !== content) await atomic(file, content);

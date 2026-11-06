@@ -49,7 +49,7 @@ final class SystemBrowserHost implements BrowserHost {
             @Override public boolean onJsAlert(WebView view,String url,String message,JsResult result){new AlertDialog.Builder(activity).setMessage(message).setPositiveButton("确定",(dialog,which)->result.confirm()).setOnCancelListener(dialog->result.confirm()).show();return true;}
             @Override public boolean onShowFileChooser(WebView view,ValueCallback<Uri[]> callback,FileChooserParams parameters){try{Intent intent=parameters.createIntent();activity.launch(intent,(result,data)->callback.onReceiveValue(FileChooserParams.parseResult(result,data)),callback::onReceiveValue);}catch(Exception error){callback.onReceiveValue(null);}return true;}
         });
-        if(!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)){activity.showStartupError("请先更新 Android System WebView，再打开墨屿。");return;}
+        if(!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)){activity.showStartupError("请先更新 Android System WebView，再打开Lenslet。");return;}
         WebViewCompat.addWebMessageListener(web,"MoyuNative",Collections.singleton(ORIGIN),(view,message,source,isMainFrame,reply)->{if(isMainFrame&&"https".equals(source.getScheme())&&"appassets.androidplatform.net".equals(source.getHost())&&(source.getPort()==-1||source.getPort()==443))activity.bridge.request(message.getData(),reply::postMessage);});
 
         web.loadUrl(ORIGIN+"/assets/web/mobile.html");

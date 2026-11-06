@@ -63,6 +63,6 @@ export function MobileSettings({value,change,vaultName,syncStatus,vault,sync,sho
       <Link label='回收站' icon={Trash2} click={trash}/>
     </Group>
     <Group title='软件更新'><MobileUpdateSettings updates={updates}/></Group>
-    <footer className='mobile-about'><span>墨屿 Android <span>{mobileBuild.version}</span></span><button onClick={licenses}>开源许可</button></footer>
+    <footer className='mobile-about'><span>Lenslet Android <span>{mobileBuild.version}</span></span><button onClick={licenses}>开源许可</button></footer>
   </div>;
 }

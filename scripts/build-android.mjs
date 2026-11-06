@@ -39,13 +39,13 @@ try{await fs.access(properties);}catch{
   const keyFile=path.join(signing,'moyu-release.jks');
   try{await fs.access(keyFile);throw Error('The Android signing key exists but its properties are missing. Restore the matching properties before building.');}catch(error){if(error.code!=='ENOENT')throw error;}
   const secret=crypto.randomBytes(32).toString('hex'),keytool=process.env.JAVA_HOME?path.join(process.env.JAVA_HOME,'bin',process.platform==='win32'?'keytool.exe':'keytool'):'keytool';
-  await run(keytool,['-genkeypair','-alias','moyu','-keyalg','RSA','-keysize','3072','-validity','10000','-dname','CN=Moyu Android','-keystore',keyFile,'-storepass:env','MOYU_KEY_PASSWORD','-keypass:env','MOYU_KEY_PASSWORD'],{env:{...process.env,MOYU_KEY_PASSWORD:secret}});
+  await run(keytool,['-genkeypair','-alias','moyu','-keyalg','RSA','-keysize','3072','-validity','10000','-dname','CN=Lenslet Android','-keystore',keyFile,'-storepass:env','MOYU_KEY_PASSWORD','-keypass:env','MOYU_KEY_PASSWORD'],{env:{...process.env,MOYU_KEY_PASSWORD:secret}});
   await fs.writeFile(properties,`storePassword=${secret}\nkeyPassword=${secret}\n`,{mode:0o600});
 }
 const tasks=process.argv.includes('--debug')?[':app:assembleDebug',':app:assembleDebugAndroidTest',':app:testDebugUnitTest']:[':app:assembleRelease',':app:testReleaseUnitTest'];
 await run(java,['-classpath',path.join(android,'gradle/wrapper/gradle-wrapper.jar'),'org.gradle.wrapper.GradleWrapperMain','--no-daemon','--console=plain','-PmoyuEngine='+engine,...(gecko?['-PmoyuAbi='+abi]:[]),...(process.argv.includes('--offline')?['--offline']:[]),...tasks],{cwd:android});
 if(!process.argv.includes('--debug')){
-  const output=path.join(root,'release/android/v'+mobileBuild.version),name='Moyu-Android-'+mobileBuild.version+variant.assetSuffix+(gecko&&abi==='x86_64'?'-x86_64':'')+'.apk';await fs.mkdir(output,{recursive:true});
+  const output=path.join(root,'release/android/v'+mobileBuild.version),name='Lenslet-Android-'+mobileBuild.version+variant.assetSuffix+(gecko&&abi==='x86_64'?'-x86_64':'')+'.apk';await fs.mkdir(output,{recursive:true});
   const target=path.join(output,name);await fs.copyFile(path.join(android,'app',gecko?'build-gecko-main-'+abi:'build-webview','outputs/apk/release/app-release.apk'),target);
   const hash=crypto.createHash('sha256').update(await fs.readFile(target)).digest('hex');await fs.writeFile(path.join(output,name+'.sha256'),hash+'  '+name+'\n');
   const checksums=[];for(const file of (await fs.readdir(output)).filter(file=>file.endsWith('.apk.sha256')).sort())checksums.push(await fs.readFile(path.join(output,file),'utf8'));

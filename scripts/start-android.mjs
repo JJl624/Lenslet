@@ -35,7 +35,7 @@ async function main(){
   const engine=values.engine||(/-WebView\.apk$/i.test(values.apk||'')?'webview':'gecko');
   if(!Object.hasOwn(variants,engine))throw Error('内核只能是 gecko 或 webview。');
   const application=values.package||variants[engine].applicationId;
-  if(!/^(?:com\.lrj\.moyu\.(?:gecko|webview)|app\.moyu\.notes(?:\.(?:gecko|refreshprobe|webview))?)(?:\.debug)?$/.test(application))throw Error('应用包名必须是墨屿的正式版或测试版包名。');
+  if(!/^(?:com\.lrj\.moyu\.(?:gecko|webview)|app\.moyu\.notes(?:\.(?:gecko|refreshprobe|webview))?)(?:\.debug)?$/.test(application))throw Error('应用包名必须是Lenslet的正式版或测试版包名。');
   const configFile=path.join(project,'android/emulator.local.json');
   const config=fs.existsSync(configFile)?JSON.parse(fs.readFileSync(configFile,'utf8')):{};
   const sdk=[process.env.ANDROID_HOME,process.env.ANDROID_SDK_ROOT,resolve(config.sdk),
@@ -55,10 +55,10 @@ async function main(){
   if(!apk){
     const releases=path.join(project,'release/android'),candidates=[];
     if(fs.existsSync(releases))for(const directory of fs.readdirSync(releases,{withFileTypes:true}).filter(entry=>entry.isDirectory())){
-      const pattern=engine==='webview'?/^Moyu-Android-[\d.]+-WebView\.apk$/:/^Moyu-Android-[\d.]+\.apk$/;
+      const pattern=engine==='webview'?/^(?:Lenslet|Moyu)-Android-[\d.]+-WebView\.apk$/:/^(?:Lenslet|Moyu)-Android-[\d.]+\.apk$/;
       for(const name of fs.readdirSync(path.join(releases,directory.name)))if(pattern.test(name))candidates.push({name,path:path.join(releases,directory.name,name)});
     }
-    candidates.sort((a,b)=>b.name.localeCompare(a.name,'en',{numeric:true}));apk=candidates[0]?.path||'';
+    candidates.sort((a,b)=>b.name.replace(/^Moyu/,'Lenslet').localeCompare(a.name.replace(/^Moyu/,'Lenslet'),'en',{numeric:true})||a.name.localeCompare(b.name));apk=candidates[0]?.path||'';
   }
   if(!apk||!fs.existsSync(apk))throw Error('找不到 Android 安装包。请先运行 npm run dist:android，或用 --apk 指定 APK。');
   const list=outputLines((await execute(emulator,['-list-avds'],{env,windowsHide:true,timeout:15000})).stdout);
@@ -98,11 +98,11 @@ async function main(){
   if(!ready)throw Error('等待 Android 启动超时。模拟器窗口仍会保留，请启动完成后再次运行脚本。');
   console.log('正在安装 '+path.basename(apk)+'…');
   try{await execute(adb,['-s',serial,'install','-r',apk],{env,windowsHide:true,timeout:120000});}
-  catch(error){const detail=(error.stderr||'')+' '+(error.stdout||'');if(detail.includes('INSTALL_FAILED_UPDATE_INCOMPATIBLE'))throw Error('已有墨屿使用了不同签名。请在模拟器中备份笔记并卸载旧版后，再运行此脚本。');throw Error('安装失败：'+detail.trim());}
+  catch(error){const detail=(error.stderr||'')+' '+(error.stdout||'');if(detail.includes('INSTALL_FAILED_UPDATE_INCOMPATIBLE'))throw Error('已有Lenslet使用了不同签名。请在模拟器中备份笔记并卸载旧版后，再运行此脚本。');throw Error('安装失败：'+detail.trim());}
   await runAdb(['-s',serial,'shell','input','keyevent','KEYCODE_WAKEUP']);
   await runAdb(['-s',serial,'shell','wm','dismiss-keyguard']);
   const started=await runAdb(['-s',serial,'shell','am','start','-W','-n',application+'/app.moyu.notes.MainActivity']);
-  if(/Error:|Exception|Status: timeout/.test(started))throw Error('无法打开墨屿：'+started);
-  console.log('墨屿已打开。关闭模拟器窗口即可退出；下次启动会保留笔记。');
+  if(/Error:|Exception|Status: timeout/.test(started))throw Error('无法打开Lenslet：'+started);
+  console.log('Lenslet已打开。关闭模拟器窗口即可退出；下次启动会保留笔记。');
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))main().catch(error=>{console.error('\n'+error.message);process.exitCode=1;});

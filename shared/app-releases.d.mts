@@ -1,4 +1,5 @@
 export interface ReleaseInfo {version:string;url:string;downloadUrl?:string}
+export const repository:string;
 export const releases:string;
 export function stableReleaseVersion(tag:unknown):string|null;
 export function newerRelease(version:string,current:string):boolean;

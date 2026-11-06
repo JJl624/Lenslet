@@ -1,6 +1,6 @@
 # Markdown 语法指南
 
-墨屿使用 Milkdown / Crepe 进行预览编辑编辑。这篇文档展示常用的 Markdown 排版。
+Lenslet使用 Milkdown / Crepe 进行预览编辑编辑。这篇文档展示常用的 Markdown 排版。
 
 ## 文字与引用
 

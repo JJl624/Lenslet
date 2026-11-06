@@ -7,7 +7,7 @@ export function adaptAlphaTabAudio(source){
   if(start<0||end<0)throw Error('alphaTab AudioWorklet implementation changed; review adapter');
   let output=source.slice(start,end);
   const replace=(before,after)=>{if(output.split(before).length!==2)throw Error('alphaTab AudioWorklet lifecycle changed; review adapter: '+before);output=output.replace(before,after);};
-  replace('\t_worklet = null;','\t// Moyu: cancel pending async startup before pause/destroy/replay.\n\t_sourceStarted = false;\n\t_worklet = null;');
+  replace('\t_worklet = null;','\t// Lenslet: cancel pending async startup before pause/destroy/replay.\n\t_sourceStarted = false;\n\t_worklet = null;');
   replace('\t\tsuper.play();','\t\tsuper.play();\n\t\tthis._sourceStarted = false;\n\t\tconst source = this.source;');
   replace('BrowserUiFacade.createAlphaSynthAudioWorklet(ctx, this._settings).then(() => {','BrowserUiFacade.createAlphaSynthAudioWorklet(ctx, this._settings).then(() => {\n\t\t\tif (this.source !== source || this.context !== ctx) return;');
   replace('\t\t\tthis.source.connect(this._worklet);\n\t\t\tthis.source.start(0);','\t\t\tsource.connect(this._worklet);\n\t\t\tsource.start(0);\n\t\t\tthis._sourceStarted = true;');

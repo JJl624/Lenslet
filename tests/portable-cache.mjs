@@ -6,7 +6,7 @@ import { chromium, expect } from '../node_modules/@playwright/test/index.mjs';
 const project = path.resolve(import.meta.dirname, '..'),
   base = path.resolve(project, '../../work/portable-cache-tests');
 await fs.mkdir(base, { recursive: true });
-const data = path.join(await fs.mkdtemp(path.join(base, 'case-')), '首次启动 中文 空格', 'Moyu应用数据');
+const data = path.join(await fs.mkdtemp(path.join(base, 'case-')), '首次启动 中文 空格', 'Lenslet应用数据');
 const env = {
   ...process.env,
   MOYU_USER_DATA: data,
@@ -16,7 +16,7 @@ const env = {
 };
 delete env.ELECTRON_RUN_AS_NODE;
 const { version } = JSON.parse(await fs.readFile(path.join(project, 'package.json'), 'utf8'));
-const exe = path.join(project, `release/v${version}/Moyu-${version}-x64.exe`);
+const exe = path.join(project, `release/v${version}/Lenslet-${version}-x64.exe`);
 async function launch() {
   await fs.unlink(path.join(data, 'cache/DevToolsActivePort')).catch(e => {
     if (e.code !== 'ENOENT') throw e;

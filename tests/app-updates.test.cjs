@@ -2,11 +2,11 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const {AppUpdates,releaseInfo,releaseAssets}=require('../electron/app-updates.cjs');
 const windowsInfo=value=>releaseInfo(value,'win32','x64');
 const base=path.resolve(__dirname,'../../../work/update-unit');
-const release=(version='1.0.1')=>({tag_name:'v'+version,draft:false,prerelease:false,assets:[{name:'Moyu-'+version+'-x64.exe',state:'uploaded',size:100,browser_download_url:'https://github.com/JJl624/Moyu/releases/download/v'+version+'/Moyu-'+version+'-x64.exe'}]});
+const release=(version='1.0.1')=>({tag_name:'v'+version,draft:false,prerelease:false,assets:[{name:'Lenslet-'+version+'-x64.exe',state:'uploaded',size:100,browser_download_url:'https://github.com/JJl624/Lenslet/releases/download/v'+version+'/Lenslet-'+version+'-x64.exe'}]});
 test('Android browser variants select their own release asset and reject the other package',()=>{
  for(const variant of ['gecko','webview']){
   const own=releaseAssets('1.0.99','android',variant)[0],other=releaseAssets('1.0.99','android',variant==='gecko'?'webview':'gecko')[0];
-  const asset=name=>({name,state:'uploaded',size:100,browser_download_url:'https://github.com/JJl624/Moyu/releases/download/v1.0.99/'+name});
+  const asset=name=>({name,state:'uploaded',size:100,browser_download_url:'https://github.com/JJl624/Lenslet/releases/download/v1.0.99/'+name});
   const metadata={tag_name:'v1.0.99',assets:[asset(other),asset(own)]};
   assert.equal(releaseInfo(metadata,'android',variant).downloadUrl,asset(own).browser_download_url);
   assert.throws(()=>releaseInfo({...metadata,assets:[asset(other)]},'android',variant),/Android/);
@@ -16,7 +16,7 @@ async function fixture(t){await fs.mkdir(base,{recursive:true});const root=await
 test('Update checks validate the stable Windows asset and reject incomplete or redirected releases',()=>{
  assert.equal(windowsInfo(release()).version,'1.0.1');
  for(const invalid of [{...release(),draft:true},{...release(),prerelease:true},{...release(),assets:[]},release('nonsense')])assert.throws(()=>windowsInfo(invalid));
- const wrong=release();wrong.assets[0].browser_download_url='https://example.com/Moyu.exe';assert.throws(()=>windowsInfo(wrong));
+ const wrong=release();wrong.assets[0].browser_download_url='https://example.com/Lenslet.exe';assert.throws(()=>windowsInfo(wrong));
 });
 test('Update checks coalesce, cache successful results for a day, preserve settings and detect a later version',async t=>{
  const root=await fixture(t);let calls=0,clock=100000000,version='1.0.1',releaseFetch;
@@ -38,11 +38,11 @@ test('Offline and rate-limited update checks never claim success or advance the 
 
 test('Rate-limited public API falls back to the stable release redirect and verifies the Windows download',async t=>{
  const root=await fixture(t),calls=[];
- const updates=new AppUpdates(root,'1.0.0',{platform:'win32',arch:'x64',fetch:async(url,options)=>{calls.push([url,options?.method]);if(url.includes('api.github.com'))return new Response('',{status:403});if(url.endsWith('/latest'))return new Response(null,{status:302,headers:{location:'https://github.com/JJl624/Moyu/releases/tag/v1.0.1'}});return new Response(null,{status:200,headers:{'content-length':'100'}});}});
+ const updates=new AppUpdates(root,'1.0.0',{platform:'win32',arch:'x64',fetch:async(url,options)=>{calls.push([url,options?.method]);if(url.includes('api.github.com'))return new Response('',{status:403});if(url.endsWith('/latest'))return new Response(null,{status:302,headers:{location:'https://github.com/JJl624/Lenslet/releases/tag/v1.0.1'}});return new Response(null,{status:200,headers:{'content-length':'100'}});}});
  assert.equal((await updates.check(true)).latest.version,'1.0.1');assert.equal(calls.length,3);assert.equal(calls[2][1],'HEAD');
 });
 test('Update fallback refuses foreign redirects and unavailable executables',async t=>{
- for(const foreign of [true,false]){const root=await fixture(t);const updates=new AppUpdates(root,'1.0.0',{platform:'win32',arch:'x64',fetch:async url=>url.includes('api.github.com')?new Response('',{status:429}):url.endsWith('/latest')?new Response(null,{status:302,headers:{location:foreign?'https://example.com/releases/tag/v1.0.1':'https://github.com/JJl624/Moyu/releases/tag/v1.0.1'}}):new Response('',{status:404})});await assert.rejects(updates.check(true),foreign?/版本信息/:/下载文件/);assert.equal((await updates.state()).checkedAt,0);}
+ for(const foreign of [true,false]){const root=await fixture(t);const updates=new AppUpdates(root,'1.0.0',{platform:'win32',arch:'x64',fetch:async url=>url.includes('api.github.com')?new Response('',{status:429}):url.endsWith('/latest')?new Response(null,{status:302,headers:{location:foreign?'https://example.com/releases/tag/v1.0.1':'https://github.com/JJl624/Lenslet/releases/tag/v1.0.1'}}):new Response('',{status:404})});await assert.rejects(updates.check(true),foreign?/版本信息/:/下载文件/);assert.equal((await updates.state()).checkedAt,0);}
 });
 
 test('Failed automatic checks wait a day before retrying; an explicit check remains available',async t=>{
@@ -52,16 +52,16 @@ test('Failed automatic checks wait a day before retrying; an explicit check rema
 });
 
 test('Linux release checks require an asset for the current architecture and accept AppImage or DEB',()=>{
- const make=(name)=>({tag_name:'v1.0.1',assets:[{name,state:'uploaded',size:100,browser_download_url:'https://github.com/JJl624/Moyu/releases/download/v1.0.1/'+name}]});
- for(const name of ['Moyu-1.0.1-x86_64.AppImage','Moyu-1.0.1-amd64.deb'])assert.equal(releaseInfo(make(name),'linux','x64').version,'1.0.1');
- assert.equal(releaseInfo(make('Moyu-1.0.1-arm64.AppImage'),'linux','arm64').version,'1.0.1');
- for(const name of ['Moyu-1.0.1-x64.exe','Moyu-1.0.1-arm64.AppImage'])assert.throws(()=>releaseInfo(make(name),'linux','x64'),/Linux/);
+ const make=(name)=>({tag_name:'v1.0.1',assets:[{name,state:'uploaded',size:100,browser_download_url:'https://github.com/JJl624/Lenslet/releases/download/v1.0.1/'+name}]});
+ for(const name of ['Lenslet-1.0.1-x86_64.AppImage','Lenslet-1.0.1-amd64.deb'])assert.equal(releaseInfo(make(name),'linux','x64').version,'1.0.1');
+ assert.equal(releaseInfo(make('Lenslet-1.0.1-arm64.AppImage'),'linux','arm64').version,'1.0.1');
+ for(const name of ['Lenslet-1.0.1-x64.exe','Lenslet-1.0.1-arm64.AppImage'])assert.throws(()=>releaseInfo(make(name),'linux','x64'),/Linux/);
 });
 
 test('Linux update filenames agree with the pinned builder for every supported target architecture',()=>{
  const {Arch,getArtifactArchName}=require('builder-util');
  for(const arch of ['x64','ia32','arm64','armv7l']){
-  const built=['AppImage','deb'].map(ext=>`Moyu-1.0.1-${getArtifactArchName(Arch[arch],ext)}.${ext}`);
+  const built=['AppImage','deb'].map(ext=>`Lenslet-1.0.1-${getArtifactArchName(Arch[arch],ext)}.${ext}`);
   assert.deepEqual(releaseAssets('1.0.1','linux',arch),built);
  }
 });
@@ -70,10 +70,10 @@ test('Linux update fallback validates the DEB when the AppImage is not published
  const root=await fixture(t),downloads=[];
  const updates=new AppUpdates(root,'1.0.0',{platform:'linux',arch:'x64',fetch:async url=>{
   if(url.includes('api.github.com'))return new Response('',{status:429});
-  if(url.endsWith('/latest'))return new Response(null,{status:302,headers:{location:'https://github.com/JJl624/Moyu/releases/tag/v1.0.1'}});
+  if(url.endsWith('/latest'))return new Response(null,{status:302,headers:{location:'https://github.com/JJl624/Lenslet/releases/tag/v1.0.1'}});
   downloads.push(url);return url.endsWith('.deb')?new Response(null,{headers:{'content-length':'100'}}):new Response(null,{status:404});
  }});
- assert.equal((await updates.check(true)).latest.version,'1.0.1');assert.deepEqual(downloads.map(url=>url.split('/').pop()),['Moyu-1.0.1-x86_64.AppImage','Moyu-1.0.1-amd64.deb']);
+ assert.equal((await updates.check(true)).latest.version,'1.0.1');assert.deepEqual(downloads.map(url=>url.split('/').pop()),['Lenslet-1.0.1-x86_64.AppImage','Lenslet-1.0.1-amd64.deb']);
 });
 
 test('A Linux development build remains up to date when the older stable release only has Windows assets',async t=>{

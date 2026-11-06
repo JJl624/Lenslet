@@ -27,7 +27,7 @@ final class WebDavTransport {
         if(!Arrays.asList("GET","HEAD","PUT","PROPFIND","MKCOL","DELETE").contains(method))throw new IOException("请求方法无效。");
         for(int redirect=0;redirect<4;redirect++) {
             check(id);
-            Request.Builder request=new Request.Builder().url(url).header("User-Agent","Moyu-Android/"+BuildConfig.VERSION_NAME).header("Authorization",Credentials.basic(input.optString("username"),input.optString("password"),StandardCharsets.UTF_8));
+            Request.Builder request=new Request.Builder().url(url).header("User-Agent","Lenslet-Android/"+BuildConfig.VERSION_NAME).header("Authorization",Credentials.basic(input.optString("username"),input.optString("password"),StandardCharsets.UTF_8));
             JSONObject headers=input.optJSONObject("headers");
             if(headers!=null)for(Iterator<String> keys=headers.keys();keys.hasNext();){String key=keys.next();if(Arrays.asList("depth","content-type","if-match","if-none-match").contains(key.toLowerCase(Locale.ROOT)))request.header(key,headers.getString(key));}
             RequestBody body=null;

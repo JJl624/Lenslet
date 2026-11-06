@@ -36,6 +36,7 @@ class Connections {
   }
   decode(data, reveal) {
     const stored=data.webdav||{},webdav={...stored,sync:policy(stored.sync),hasPassword:!!(stored.password||stored.secret)};
+    if (stored.url && !stored.directory) webdav.directory = '/Moyu';
     delete webdav.secret;
     delete webdav.password;
     if(reveal)webdav.password=this.password(stored);
@@ -49,7 +50,7 @@ class Connections {
         const previous = this.decode(stored, false);
         let next;
         if (kind === "webdav") {
-          const remote = String(input.directory || "/Moyu").replace(/\/$/, "");
+          const remote = String(input.directory || previous.webdav.directory || "/Lenslet").replace(/\/$/, "");
           if (
             !remote.startsWith("/") ||
             remote

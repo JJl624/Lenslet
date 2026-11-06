@@ -94,7 +94,7 @@ public final class MainActivity extends Activity {
     void viewportReady(){if(imeViewport!=null)imeViewport.ready();}
     void deliver(java.util.function.Consumer<String> proxy,String message){runOnUiThread(()->{if(!destroyed)try{proxy.accept(message);}catch(IllegalStateException ignored){}});}
     @Override public void onConfigurationChanged(Configuration configuration){super.onConfigurationChanged(configuration);event("moyu-mobile-resize");}
-    void showStartupError(String message){runOnUiThread(()->new AlertDialog.Builder(this).setTitle("墨屿").setMessage(message).setPositiveButton("关闭",(d,w)->finish()).show());}
+    void showStartupError(String message){runOnUiThread(()->new AlertDialog.Builder(this).setTitle(R.string.app_name).setMessage(message).setPositiveButton("关闭",(d,w)->finish()).show());}
     void launch(Intent intent,Picker picker,java.util.function.Consumer<Uri[]> cancelled) throws Exception {
         int code=++requestCode;pickers.put(code,picker);try{startActivityForResult(intent,code);}catch(Exception error){pickers.remove(code);if(cancelled!=null)cancelled.accept(null);else throw new IOException("没有可用于选择文件的系统应用。",error);}
     }

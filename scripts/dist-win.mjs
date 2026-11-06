@@ -14,17 +14,17 @@ const builder = JSON.parse(
   await fs.readFile(path.join(root, 'node_modules/app-builder-lib/package.json'), 'utf8'),
 );
 if (builder.version !== '26.15.3') {
-  throw Error('Revalidate the Moyu portable build adapter before upgrading electron-builder.');
+  throw Error('Revalidate the Lenslet portable build adapter before upgrading electron-builder.');
 }
 const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
 const prepackaged = process.argv.includes('--prepackaged')
-  ? path.join(root, pkg.build.directories.output, 'win-unpacked')
+  ? path.join(root, pkg.build.directories.output.replaceAll('${version}', pkg.version), 'win-unpacked')
   : undefined;
 const source = await fs.readFile(path.join(root, 'scripts/portable.nsi'), 'utf8');
 const previous = nsis.NsisTarget.prototype.computeFinalScript;
 nsis.NsisTarget.prototype.computeFinalScript = async function(raw, ...args) {
   if (this.isPortable) {
-    if (!this.options.useZip) throw Error('Moyu portable launcher requires ZIP compression.');
+    if (!this.options.useZip) throw Error('Lenslet portable launcher requires ZIP compression.');
     // Cache identity follows application content and the runtime executable,
     // including same-version rebuilds. Both are streamed, never held in memory.
     const digest = createHash('sha256');

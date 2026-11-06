@@ -556,7 +556,7 @@ export function Preferences(p: Props) {
         {category === '代码' && <CodePreferences ref={codePreferences} language={codeLanguage} change={setCodeLanguage} />}
       </div>
       <div className='pref-bottom'>
-        <small>墨屿 Moyu {version} · <button className='pref-update-button' onClick={() => window.dispatchEvent(new Event('moyu-check-update'))}>检查更新</button></small>
+        <small className='pref-version'><span>Lenslet {version}</span><button className='pref-update-button' onClick={() => window.dispatchEvent(new Event('moyu-check-update'))}>检查更新</button></small>
         {category !== '数据与运行环境' && <button
           className='secondary-button'
           onClick={() => {

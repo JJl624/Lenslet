@@ -4,8 +4,8 @@ import {mockAndroid} from './helpers/mobile-native-mock';
 import fs from 'node:fs';
 import path from 'node:path';
 const pkg=JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url),'utf8'));
-const next=pkg.version.replace(/\d+$/,value=>String(Number(value)+1)),asset='https://github.com/JJl624/Moyu/releases/download/v'+next+'/Moyu-Android-'+next+'.apk';
-const release={tag_name:'v'+next,draft:false,prerelease:false,assets:[{name:'Moyu-Android-'+next+'.apk',state:'uploaded',size:100,browser_download_url:asset}]};
+const next=pkg.version.replace(/\d+$/,value=>String(Number(value)+1)),asset='https://github.com/JJl624/Lenslet/releases/download/v'+next+'/Lenslet-Android-'+next+'.apk';
+const release={tag_name:'v'+next,draft:false,prerelease:false,assets:[{name:'Lenslet-Android-'+next+'.apk',state:'uploaded',size:100,browser_download_url:asset}]};
 async function start(page:Page,options:{automatic?:boolean;failure?:boolean;release?:unknown;engine?:'gecko'|'webview'}={}){
   await mockAndroid(page,{engine:options.engine||'gecko',files:{'note.md':{content:'正文'}}});await page.addInitScript(options=>{if(window!==window.top)return;const state=(window as any).__mobileState;if(state.settings['moyu-mobile-updates']===undefined)state.settings['moyu-mobile-updates']=JSON.stringify({automatic:options.automatic??false});state.updateFailure=options.failure;state.updateRelease=options.release;},options);await page.goto('/mobile.html');await expect(page.getByRole('tab',{name:'阅读',exact:true})).toBeVisible();
 }
@@ -31,14 +31,14 @@ test('Failures never report up to date; incomplete or foreign APK assets are rej
   for(const invalid of [{...release,assets:[]},{...release,assets:[{...release.assets[0],browser_download_url:'https://example.com/moyu.apk'}]},{...release,draft:true},{...release,prerelease:true}]){await page.evaluate(value=>{const state=(window as any).__mobileState;state.updateFailure=false;state.updateRelease=value;},invalid);await page.getByRole('button',{name:'检查更新',exact:true}).click();await expect(page.getByRole('alert')).toBeVisible();await expect(page.getByRole('link',{name:'下载 APK',exact:true})).toHaveCount(0);await expect(page.getByText('已是最新版本',{exact:true})).toHaveCount(0);}
 });
 test('Limited API falls back to the official release redirect and validates the matching APK',async({page})=>{
-  await start(page);await page.evaluate(({next,asset})=>{(window as any).__mobileState.updateResponses={latest:{status:429},redirect:{status:302,location:'https://github.com/JJl624/Moyu/releases/tag/v'+next},asset:{status:200,size:100}};},{next,asset});await settings(page);await page.getByRole('button',{name:'检查更新',exact:true}).click();await expect(page.getByRole('link',{name:'下载 APK',exact:true})).toHaveAttribute('href',asset);expect(await page.evaluate(()=>(window as any).__mobileState.updateRequests.map((item:any)=>item.kind))).toEqual(['latest','redirect','asset']);
+  await start(page);await page.evaluate(({next,asset})=>{(window as any).__mobileState.updateResponses={latest:{status:429},redirect:{status:302,location:'https://github.com/JJl624/Lenslet/releases/tag/v'+next},asset:{status:200,size:100}};},{next,asset});await settings(page);await page.getByRole('button',{name:'检查更新',exact:true}).click();await expect(page.getByRole('link',{name:'下载 APK',exact:true})).toHaveAttribute('href',asset);expect(await page.evaluate(()=>(window as any).__mobileState.updateRequests.map((item:any)=>item.kind))).toEqual(['latest','redirect','asset']);
 });
 test('Concurrent checks share one request; failure cooldown does not block deliberate retries',async({page})=>{
   await start(page,{automatic:true});const result=await page.evaluate(async()=>{const{MobileUpdates}=await import('/src/mobile/mobileUpdates.ts');let calls=0,now=100000000;const service=new MobileUpdates(async()=>{calls++;await new Promise(resolve=>setTimeout(resolve,30));return{status:500};},'1.0.20',()=>now);await Promise.allSettled([service.check(),service.check()]);const first=calls;await service.check();const afterCooldown=calls;await service.check(true).catch(()=>{});return{first,afterCooldown,last:calls};});expect(result).toEqual({first:1,afterCooldown:1,last:2});
 });
 
 test('WebView downloads its own APK when both packages are released',async({page})=>{
-  const name='Moyu-Android-'+next+'-WebView.apk',url='https://github.com/JJl624/Moyu/releases/download/v'+next+'/'+name;
+  const name='Lenslet-Android-'+next+'-WebView.apk',url='https://github.com/JJl624/Lenslet/releases/download/v'+next+'/'+name;
   await start(page,{engine:'webview',release:{...release,assets:[...release.assets,{name,state:'uploaded',size:100,browser_download_url:url}]}});
   await settings(page);await page.getByRole('button',{name:'检查更新',exact:true}).click();
   await expect(page.getByRole('link',{name:'下载 APK',exact:true})).toHaveAttribute('href',url);
@@ -48,9 +48,9 @@ test('WebView downloads its own APK when both packages are released',async({page
 test('WebView rejects Gecko-only releases and fallback requests retain the browser variant',async({page})=>{
   await start(page,{engine:'webview',release});await settings(page);await page.getByRole('button',{name:'检查更新',exact:true}).click();
   await expect(page.getByRole('alert')).toContainText('Android');await expect(page.getByRole('link',{name:'下载 APK',exact:true})).toHaveCount(0);
-  await page.evaluate(next=>{(window as any).__mobileState.updateResponses={latest:{status:429},redirect:{status:302,location:'https://github.com/JJl624/Moyu/releases/tag/v'+next},asset:{status:200,size:100}};},next);
+  await page.evaluate(next=>{(window as any).__mobileState.updateResponses={latest:{status:429},redirect:{status:302,location:'https://github.com/JJl624/Lenslet/releases/tag/v'+next},asset:{status:200,size:100}};},next);
   await page.getByRole('button',{name:'检查更新',exact:true}).click();
-  const url='https://github.com/JJl624/Moyu/releases/download/v'+next+'/Moyu-Android-'+next+'-WebView.apk';
+  const url='https://github.com/JJl624/Lenslet/releases/download/v'+next+'/Lenslet-Android-'+next+'-WebView.apk';
   await expect(page.getByRole('link',{name:'下载 APK',exact:true})).toHaveAttribute('href',url);
   expect(await page.evaluate(()=>(window as any).__mobileState.updateRequests.at(-1).url)).toBe(url);
   await page.reload();await settings(page);await expect(page.getByRole('link',{name:'下载 APK',exact:true})).toHaveAttribute('href',url);

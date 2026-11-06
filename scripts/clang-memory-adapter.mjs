@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 
 // llvm-core caches both compiled modules and their decompressed input buffers.
-// Moyu reuses the modules; retaining another copy of clang/lld/memfs bytes is
+// Lenslet reuses the modules; retaining another copy of clang/lld/memfs bytes is
 // unnecessary. Apply this narrow adapter during bundling, never in node_modules.
 // Pin the source so upgrading the dependency requires reviewing its lifetime.
 export function adaptCompilerAssetCache(source, assetSizes = {}) {

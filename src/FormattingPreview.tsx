@@ -5,12 +5,12 @@ export const formattingExamples: Record<string, { name: string; code: string }> 
   javascript: {
     name: 'JavaScript',
     code:
-      'const user={name:"Moyu",tags:["notes","code"]};\nfunction greet(name){if(name){return "Hello, "+name;}return "Hello";}\nconsole.log(greet(user.name));',
+      'const user={name:"Lenslet",tags:["notes","code"]};\nfunction greet(name){if(name){return "Hello, "+name;}return "Hello";}\nconsole.log(greet(user.name));',
   },
   typescript: {
     name: 'TypeScript',
     code:
-      'interface Note{title:string;tags:string[];}\nconst notes:Note[]=[{title:"Moyu",tags:["markdown","code"]}];\nfunction titles(items:Note[]):string[]{return items.map(item=>item.title);}',
+      'interface Note{title:string;tags:string[];}\nconst notes:Note[]=[{title:"Lenslet",tags:["markdown","code"]}];\nfunction titles(items:Note[]):string[]{return items.map(item=>item.title);}',
   },
   python: {
     name: 'Python',

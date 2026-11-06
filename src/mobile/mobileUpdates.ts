@@ -1,4 +1,4 @@
-import {releaseInfo,releases,releaseAssets,stableReleaseVersion,newerRelease,type ReleaseInfo} from '../../shared/app-releases.mjs';
+import {releaseInfo,releases,repository,releaseAssets,stableReleaseVersion,newerRelease,type ReleaseInfo} from '../../shared/app-releases.mjs';
 import {settingsStore} from '../settingsStore';
 import {mobileFeature} from './native';
 import build from '../../shared/mobile-build.json';
@@ -25,7 +25,7 @@ export class MobileUpdates {
       try{response=await this.request({kind:'latest'});}catch{/* GitHub's release redirect also works when its public API is limited. */}
       if(response?.status===200){let metadata:unknown;try{metadata=JSON.parse(response.body||'');}catch{throw Error('无法读取 GitHub 版本信息。');}latest=releaseInfo(metadata,'android',this.variant,this.version);}
       else if(!response||[403,429].includes(response.status)){
-        const redirect=await this.request({kind:'redirect'}),url=new URL(redirect.location||'',releases+'/latest'),prefix='/JJl624/Moyu/releases/tag/',tag=decodeURIComponent(url.pathname.slice(prefix.length)),version=stableReleaseVersion(tag);
+        const redirect=await this.request({kind:'redirect'}),url=new URL(redirect.location||'',releases+'/latest'),prefix=`/${repository}/releases/tag/`,tag=decodeURIComponent(url.pathname.slice(prefix.length)),version=stableReleaseVersion(tag);
         if(![301,302,303,307,308].includes(redirect.status)||url.origin!=='https://github.com'||!url.pathname.startsWith(prefix)||url.search||url.hash||!version)throw Error('无法读取 GitHub 版本信息。');
         latest={version,url:releases+'/tag/'+encodeURIComponent(tag)};
         if(newerRelease(version,this.version)){const name=releaseAssets(version,'android',this.variant)[0],downloadUrl=releases+'/download/'+encodeURIComponent(tag)+'/'+name,asset=await this.request({kind:'asset',url:downloadUrl});if(asset.status!==200||!(Number(asset.size)>0))throw Error('新版 Android 安装包尚未就绪。');latest.downloadUrl=downloadUrl;}

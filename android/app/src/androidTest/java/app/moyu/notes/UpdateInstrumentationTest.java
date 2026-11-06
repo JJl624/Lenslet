@@ -27,7 +27,7 @@ public class UpdateInstrumentationTest {
     @Test public void downloadChecksStayWithTheInstalledBrowserVariant() throws Exception {
         AtomicInteger calls=new AtomicInteger();
         OkHttpClient client=new OkHttpClient.Builder().addInterceptor(chain->{calls.incrementAndGet();assertEquals("HEAD",chain.request().method());return new Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK").header("Content-Length","100").body(ResponseBody.create(new byte[0],null)).build();}).build();
-        String base="https://github.com/JJl624/Moyu/releases/download/v1.0.99/Moyu-Android-1.0.99";
+        String base="https://github.com/JJl624/Lenslet/releases/download/v1.0.99/Lenslet-Android-1.0.99";
         String own=BuildConfig.BROWSER_ENGINE.equals("webview")?"-WebView":"",other=own.isEmpty()?"-WebView":"";
         assertEquals(200,UpdateTransport.request(new JSONObject().put("kind","asset").put("url",base+own+".apk"),client).getInt("status"));
         try{UpdateTransport.request(new JSONObject().put("kind","asset").put("url",base+other+".apk"),client);fail("wrong browser variant");}catch(IOException expected){assertTrue(expected.getMessage().contains("无效"));}

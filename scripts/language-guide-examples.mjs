@@ -44,9 +44,8 @@ print(struct.unpack("<3i", (folder / "values.bin").read_bytes()))`)}
 ## 下载公共文件（需要联网）
 
 download 将公共 HTTP(S) 文件保存到当前块的数据目录，单个文件上限为 20 MB。
-${c('python',`from js import moyu_download
-from pathlib import Path
-await moyu_download("https://example.com/", "input/example.html")
+${c('python',`from pathlib import Path
+await download("https://example.com/", "input/example.html")
 print(Path("input/example.html").read_text(encoding="utf-8")[:200])`)}
 `,
   JavaScript:c=>`

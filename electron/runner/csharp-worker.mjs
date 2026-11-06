@@ -17,10 +17,10 @@ self.addEventListener('message',async({data:input})=>{
     }
     if(input.type==='packages'){
       settings=input.runtimeSettings;mountData(FS,input.files);try{stdin=settings.stdinFile?FS.readFile('/data/'+settings.stdinFile):[];}catch{stdin=[];}
-      const sources=[{path:'MoyuProgram.cs',text:settings.usings.map(name=>'using '+name+';').join('\n')+'\n'+input.code}];
+      const sources=[{path:'LensletProgram.cs',text:settings.usings.map(name=>'using '+name+';').join('\n')+'\n'+input.code}];
       if(settings.multiFile)for(const file of input.files||[])if(/\.cs$/i.test(file.name)&&!file.name.startsWith('output/'))sources.push({path:file.name,text:new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(atob(file.data),c=>c.charCodeAt(0)))});
       if(sources.length>32||sources.reduce((n,s)=>n+s.text.length,0)>8*1024*1024)throw Error('编译源文件最多 32 个、共 8 MB。');
-      sources.push({path:'MoyuConsoleGuard.cs',text:`internal static class MoyuConsoleGuard {
+      sources.push({path:'LensletConsoleGuard.cs',text:`internal static class LensletConsoleGuard {
         [System.Runtime.CompilerServices.ModuleInitializer] public static void Initialize() { System.Console.SetOut(new BoundedWriter(System.Console.Out)); System.Console.SetError(new BoundedWriter(System.Console.Error)); ${settings.stdinFile?'System.Console.SetIn(new System.IO.StringReader(System.IO.File.Exists("'+settings.stdinFile+'")?System.IO.File.ReadAllText("'+settings.stdinFile+'"):""));':''} }
         sealed class BoundedWriter : System.IO.TextWriter { readonly System.IO.TextWriter target;int size; public BoundedWriter(System.IO.TextWriter target){this.target=target;}public override System.Text.Encoding Encoding=>target.Encoding;public override void Write(char value){if(++size>65536)throw new System.InvalidOperationException("输出超过 64 KB，已停止。");target.Write(value);}public override void Write(string value){if(value!=null)foreach(char c in value)Write(c);} }
       }`});

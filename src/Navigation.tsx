@@ -79,7 +79,7 @@ export default function Navigation(
       aria-label='知识库导航'
     >
       <div className='navigation-intro'>
-        <span className='navigation-brand'>墨屿 / MOYU</span>
+        <span className='navigation-brand'>Lenslet</span>
         <h1>知识库</h1>
       </div>
       <div className='navigation-cards'>

@@ -38,7 +38,7 @@ class Drawings {
           JSON.stringify({
             type: "excalidraw",
             version: 2,
-            source: "Moyu",
+            source: "Lenslet",
             elements: [],
             appState: { viewBackgroundColor: "#ffffff" },
             files: {},

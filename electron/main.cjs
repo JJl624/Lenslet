@@ -110,11 +110,11 @@ const { dataOperations } = require('./data-operations.cjs');
 
 const legacyData = process.env.MOYU_USER_DATA
   ? path.resolve(process.env.MOYU_USER_DATA)
-  : path.join(app.getPath('appData'), app.getName());
+  : path.join(app.getPath('appData'), 'moyu-editor');
 const hostEnvironment={...process.env};
 const dataRoot = process.env.MOYU_USER_DATA
   ? path.resolve(process.env.MOYU_USER_DATA)
-  : path.join(app.getPath('documents'), 'MoyuData');
+  : require('./application-data-root.cjs').applicationDataRoot(app.getPath('documents'));
 const applicationConfig = new (require('./application-config.cjs').ApplicationConfig)(dataRoot);
 const appUpdates = new (require('./app-updates.cjs').AppUpdates)(dataRoot, app.getVersion(), { automatic: app.isPackaged && !process.env.MOYU_TEST });
 const dataStore = new DataStore(dataRoot);
@@ -516,7 +516,7 @@ function setMenu() {
       ...(process.platform === 'darwin'
         ? [
           {
-            label: '墨屿',
+            label: 'Lenslet',
             submenu: [
               { role: 'about' },
               { type: 'separator' },
@@ -588,7 +588,7 @@ async function createWindow() {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#191b20',
-    title: '墨屿 Moyu',
+    title: 'Lenslet',
     icon: path.join(__dirname, '../resources/icon.png'),
     frame: process.platform === 'darwin',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
@@ -711,7 +711,7 @@ app
   .catch((error) => {
     console.error(error);
     if (!process.env.MOYU_TEST) {
-      dialog.showErrorBox('无法启动墨屿', error.message);
+      dialog.showErrorBox('无法启动Lenslet', error.message);
     }
     app.exit(1);
   });

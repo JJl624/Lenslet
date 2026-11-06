@@ -10,4 +10,5 @@
 .preferences .pref-row{min-height:42px;gap:14px}.preferences .pref-section{margin-top:18px;padding-top:16px}.preferences .pref-section-heading{align-items:center;gap:8px}
 
 
+.preferences .pref-version{display:inline-flex;align-items:baseline;gap:12px}
 .preferences .pref-update-button{border:0;background:transparent;color:var(--muted);font:inherit;padding:0;cursor:pointer}.preferences .pref-update-button:hover{color:var(--accent)}.preferences .pref-update-button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}

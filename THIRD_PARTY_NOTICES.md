@@ -14,7 +14,7 @@ SQLite is in the public domain (https://www.sqlite.org/copyright.html).
 Lua runs in Wasmoon **1.16.0** (MIT; https://github.com/ceifa/wasmoon), using
 Lua 5.4 (MIT; https://www.lua.org/license.html). Runtime assets and their
 SHA-256 manifests are under resources/sql/ and resources/lua/. The sandbox
-integration under electron/runner/ is Moyu source; no host runtime is invoked.
+integration under electron/runner/ is Lenslet source; no host runtime is invoked.
 
 SQL formatting uses the community Lax SQL **0.3.0** dprint WASM plugin
 (MIT; https://github.com/bartlomieju/lax-sql).
@@ -25,10 +25,10 @@ Complete formatter license notices are in resources/formatters/.
 The original plugin and StyLua source archives, their hashes and build
 instructions are distributed in resources/formatters/source/ in both the
 application and the source archive. This third-party module retains its GPL
-license; it is not relicensed under Moyu's MIT notice. The plugins run offline
+license; it is not relicensed under Lenslet's MIT notice. The plugins run offline
 through @dprint/formatter in a separate worker and have no WASM host imports.
 
-Moyu uses [Milkdown](https://github.com/Milkdown/milkdown) and its Crepe editor,
+Lenslet uses [Milkdown](https://github.com/Milkdown/milkdown) and its Crepe editor,
 version **7.22.2**. The upstream repository was cloned from GitHub and inspected
 at commit `bbb8bcbbb8ce0aa16f92567c23f6236747be9b3b` on 2026-10-04. The application
 uses the official published packages of that same version, not a substitute

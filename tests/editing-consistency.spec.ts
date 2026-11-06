@@ -144,25 +144,38 @@ test('Quote context action removes only the selected layer and undo restores it'
     expect(errors).toEqual([]);
   } finally {await app.evaluate(({app}) => app.exit(0)).catch(() => {});}
 });
-test('Startup does not recreate the absent legacy userData folder', async () => {
-  const home = await fs.mkdtemp(path.resolve(project, '../../work/legacy-startup-'));
-  const appData = path.join(home, 'app-data'), documents = path.join(home, 'documents');
-  await fs.mkdir(appData); await fs.mkdir(documents);
-  const entry = path.join(home, 'entry.cjs');
-  await fs.writeFile(entry, `const {app}=require('electron');app.setName('moyu-editor');app.setPath('appData',${JSON.stringify(appData)});app.setPath('documents',${JSON.stringify(documents)});require(${JSON.stringify(path.join(project, 'electron/main.cjs'))});`);
-  const env = {...process.env, MOYU_DEMO: '1', MOYU_TEST: '1', MOYU_TEST_OFFSCREEN: '1'};
-  delete env.ELECTRON_RUN_AS_NODE; delete env.MOYU_USER_DATA;
-  for (let pass=0; pass<2; pass++) {
+for (const [label, name] of [['reuses an existing profile', 'MoyuData'], ['creates a new default profile', 'LensletData']]) {
+  test('Startup '+label, async () => {
+    const home = await fs.mkdtemp(path.resolve(project, '../../work/legacy-startup-'));
+    const appData = path.join(home, 'app-data'), documents = path.join(home, 'documents');
+    await fs.mkdir(appData); await fs.mkdir(documents);
+    const entry = path.join(home, 'entry.cjs');
+    await fs.writeFile(entry, `const {app}=require('electron');app.setName('lenslet');app.setPath('appData',${JSON.stringify(appData)});app.setPath('documents',${JSON.stringify(documents)});require(${JSON.stringify(path.join(project, 'electron/main.cjs'))});`);
+    const env = {...process.env, MOYU_DEMO: '1', MOYU_TEST: '1', MOYU_TEST_OFFSCREEN: '1'};
+    delete env.ELECTRON_RUN_AS_NODE; delete env.MOYU_USER_DATA;
+    const data = path.join(documents, name);
+    const usingOldProfile = name === 'MoyuData';
+    if (usingOldProfile) {
+      await fs.mkdir(data);
+      await fs.writeFile(path.join(data, 'settings.json'), JSON.stringify({version: 1, values: {'moyu-save-policy': 'manual'}}));
+    }
+    const {recordTestProfile} = await import('../scripts/test-artifacts.mjs');
+    await recordTestProfile({...env, MOYU_USER_DATA: home});
     const app = await electron.launch({args: [entry], env});
     try {
       const page = await app.firstWindow(); await expect(page.locator('.ProseMirror h1')).toBeVisible();
       const result: any = await page.evaluate(() => window.moyu!.feature('data.list'));
-      expect(result.ok).toBe(true); expect(result.data.find((x:any) => x.id === 'directory').path).toBe(path.join(documents, 'MoyuData'));
+      expect(result.ok).toBe(true); expect(result.data.find((x:any) => x.id === 'directory').path).toBe(data);
+      if (usingOldProfile) {
+        const preferences: any = await page.evaluate(() => window.moyu!.feature('preferences.get'));
+        expect(preferences.data['moyu-save-policy']).toBe('manual');
+        expect(await fs.stat(path.join(documents, 'LensletData')).catch(() => null)).toBeNull();
+      }
       expect(await fs.stat(path.join(appData, 'moyu-editor')).catch(() => null)).toBeNull();
     } finally {await app.evaluate(({app}) => app.exit(0)).catch(() => {});}
     expect(await fs.stat(path.join(appData, 'moyu-editor')).catch(() => null)).toBeNull();
-  }
-});
+  });
+}
 test('Image previews and context menus remeasure when the window shrinks and returns', async () => {
   const {app, page, data, errors} = await fixture();
   try {

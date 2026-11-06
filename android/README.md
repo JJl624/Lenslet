@@ -1,4 +1,4 @@
-# Moyu Android
+# Lenslet Android
 
 Android 10 及以上，默认内置 GeckoView，包名为 `com.lrj.moyu.gecko`。系统 WebView 版不内置内核，包名为 `com.lrj.moyu.webview`。两者可同时安装，笔记编辑器、Markdown、保存、WebDAV 和手机界面使用同一份源码，数据各自独立。安卓版不包含代码运行环境和终端。
 
@@ -20,7 +20,7 @@ npm run dist:android:webview
 
 APK 输出到 `release/android/v<版本号>`，版本号与桌面端一致；`shared/mobile-build.json` 同时记录递增的 Android versionCode，构建时会校验版本一致。第一次构建生成 `android/signing/moyu-release.jks` 和对应的 `.properties`；请备份这两个文件，后续覆盖更新必须使用同一签名。签名文件不提交到 Git。
 
-两种安装包分别为 `Moyu-Android-<版本号>.apk` 和 `Moyu-Android-<版本号>-WebView.apk`，更新检查只选择当前内核的安装包。`start-android.mjs --engine webview` 启动 WebView 版。更换包名会安装为另一应用；旧包 `app.moyu.notes` 的本地数据不会自动迁移，可使用文件导出、知识库目录或 WebDAV 转移。
+两种安装包分别为 `Lenslet-Android-<版本号>.apk` 和 `Lenslet-Android-<版本号>-WebView.apk`，更新检查只选择当前内核的安装包。`start-android.mjs --engine webview` 启动 WebView 版。更换包名会安装为另一应用；旧包 `app.moyu.notes` 的本地数据不会自动迁移，可使用文件导出、知识库目录或 WebDAV 转移。
 
 `node scripts/build-android.mjs --debug` 同时构建设备测试包和运行 Java 单元测试。调试包为 `com.lrj.moyu.gecko.debug`，添加 `--system-webview` 则为 `com.lrj.moyu.webview.debug`。设备测试使用 `androidx.test.runner.AndroidJUnitRunner`；手机界面回归使用 Playwright，只有原生存储边界被替换。
 

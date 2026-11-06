@@ -1,6 +1,6 @@
 import type {MenuItem,ToolbarItem,UISchema} from '@embedpdf/plugin-ui';
 
-/** PDF is a reader. File lifetime belongs to Moyu, editing/saving to the
+/** PDF is a reader. File lifetime belongs to Lenslet, editing/saving to the
  * document session; embedded readers keep only reading controls. */
 export function pdfDisabledCategories(embedded=false){
   return ['annotation','redaction','signature','form','insert','history','document-open','document-close','document-protect','document-fullscreen',

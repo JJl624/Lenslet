@@ -86,7 +86,7 @@ async function inspectEnvironment(manager,kind,source,version){
     try{const info=await require('./local-runtime-package.cjs').packageInfo(kind,source);version=info.version;files=info.files;const install=require('./local-runtime-package.cjs').localInstaller(source,info.pkg);await install.validate();if(kind==='ruby')await install.validate('@ruby/wasm-wasi',info.pkg.version);}catch(error){issues.push(error.message);files=['package.json'];version='';}
   }else{
     version=manifest?.version||'';
-    if(manifest?.kind!==kind||!versionName(version))issues.push('请选择对应语言的 Moyu Runtime 版本目录');
+    if(manifest?.kind!==kind||!versionName(version))issues.push('请选择对应语言的 Lenslet Runtime 版本目录');
     files=['manifest.json',kind+'-runtime.mjs',...(kind==='sql'?['viewer-runtime.mjs','sql/sql-wasm.wasm']:kind==='lua'?['lua/glue.wasm']:kind==='ruby'?['ruby/ruby+stdlib.wasm']:kind==='bash'?['bash/bashkit_wasm_bg.wasm']:kind==='clang'?['clang/runtime-manifest.v1.json','clang/bin/clang.wasm.gz','clang/bin/lld.wasm.gz','clang/bin/memfs.wasm.gz','clang/bin/sysroot.tar.gz']:kind==='java'?['formatter-browser.mjs',...require('./browser-runtimes.cjs').catalog.java.files.map(f=>'java/'+f.name)]:['formatter.wasm',...require('./browser-runtimes.cjs').catalog.csharp.files.map(f=>'csharp/'+f.name)])];
   }
   for(const file of files){const stat=await fs.lstat(path.join(source,file)).catch(()=>null);if(!stat?.isFile()||stat.isSymbolicLink())issues.push('缺少文件：'+file);}
